@@ -20,12 +20,9 @@ public class MainMenuPanel extends JPanel {
     private final Color BUTTON_COLOR = new Color(70, 130, 180); // Steel Blue
     private final Color BUTTON_HOVER_COLOR = new Color(100, 149, 237); // Cornflower Blue
     private final Color BUTTON_TEXT_COLOR = Color.WHITE;
-    private final Color BACKGROUND_COLOR = new Color(135, 206, 235); // Sky Blue
-
-    // Button states
+    private final Color BACKGROUND_COLOR = new Color(135, 206, 235); // Sky Blue // Button states
     private boolean startButtonHovered = false;
     private boolean exitButtonHovered = false;
-    private int hoveredLeaderboardIndex = -1; // Index of hovered leaderboard entry
 
     // Button dimensions
     private final int BUTTON_WIDTH = 200;
@@ -33,12 +30,17 @@ public class MainMenuPanel extends JPanel {
     private JTextField playerNameField;
     private List<DatabaseManager.Player> leaderboard;
 
+    // Leaderboard components
+    private JScrollPane leaderboardScrollPane;
+    private JPanel leaderboardPanel;
+
     public MainMenuPanel() {
         setPreferredSize(new Dimension(800, 600));
         setBackground(BACKGROUND_COLOR);
         loadAssets();
         setupMouseListener();
         setupPlayerNameInput();
+        setupLeaderboard();
         loadLeaderboard();
         setFocusable(true);
     }
@@ -100,19 +102,8 @@ public class MainMenuPanel extends JPanel {
             if (exitGameListener != null) {
                 exitGameListener.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "EXIT_GAME"));
             }
-        } else {
-            // Check leaderboard clicks
-            if (leaderboard != null && !leaderboard.isEmpty()) {
-                for (int i = 0; i < Math.min(leaderboard.size(), 5); i++) {
-                    Rectangle playerBounds = getLeaderboardEntryBounds(i);
-                    if (playerBounds.contains(mouseX, mouseY)) {
-                        DatabaseManager.Player selectedPlayer = leaderboard.get(i);
-                        selectPlayerFromLeaderboard(selectedPlayer);
-                        break;
-                    }
-                }
-            }
         }
+        // Leaderboard click handling is now handled by individual player panels
     }
 
     private void handleMouseMove(int mouseX, int mouseY) {
@@ -121,29 +112,15 @@ public class MainMenuPanel extends JPanel {
 
         boolean oldStartHovered = startButtonHovered;
         boolean oldExitHovered = exitButtonHovered;
-        int oldLeaderboardHover = hoveredLeaderboardIndex;
 
         startButtonHovered = startButtonBounds.contains(mouseX, mouseY);
         exitButtonHovered = exitButtonBounds.contains(mouseX, mouseY);
 
-        // Check leaderboard hover
-        hoveredLeaderboardIndex = -1;
-        if (leaderboard != null && !leaderboard.isEmpty()) {
-            for (int i = 0; i < Math.min(leaderboard.size(), 5); i++) {
-                Rectangle playerBounds = getLeaderboardEntryBounds(i);
-                if (playerBounds.contains(mouseX, mouseY)) {
-                    hoveredLeaderboardIndex = i;
-                    break;
-                }
-            }
-        }
-
-        if (oldStartHovered != startButtonHovered || oldExitHovered != exitButtonHovered ||
-                oldLeaderboardHover != hoveredLeaderboardIndex) {
+        if (oldStartHovered != startButtonHovered || oldExitHovered != exitButtonHovered) {
             repaint();
         }
 
-        if (startButtonHovered || exitButtonHovered || hoveredLeaderboardIndex != -1) {
+        if (startButtonHovered || exitButtonHovered) {
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         } else {
             setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
@@ -157,12 +134,27 @@ public class MainMenuPanel extends JPanel {
 
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
         drawBackground(g2d);
         drawTitle(g2d);
-        drawMainUI(g2d); // Method baru yang menggabungkan buttons dan game info
+        drawButtons(g2d);
+        drawPlayerInputSection(g2d);
 
         g2d.dispose();
+    }
+
+    private void drawButtons(Graphics2D g2d) {
+        // Posisi tombol di sebelah kiri tengah
+        int buttonStartX = 150;
+        int centerY = getHeight() / 2;
+
+        // Draw Start Game button
+        Rectangle startButtonBounds = new Rectangle(buttonStartX, centerY - BUTTON_HEIGHT - 10, BUTTON_WIDTH,
+                BUTTON_HEIGHT);
+        drawButton(g2d, "START GAME", startButtonBounds, startButtonHovered);
+
+        // Draw Exit button
+        Rectangle exitButtonBounds = new Rectangle(buttonStartX, centerY + 10, BUTTON_WIDTH, BUTTON_HEIGHT);
+        drawButton(g2d, "EXIT", exitButtonBounds, exitButtonHovered);
     }
 
     private void drawBackground(Graphics2D g2d) {
@@ -244,92 +236,6 @@ public class MainMenuPanel extends JPanel {
         g2d.drawString(text, textX, textY);
     }
 
-    private void drawMainUI(Graphics2D g2d) {
-        // Gambar tombol di tengah kiri
-        drawButtonsLeftCenter(g2d);
-
-        // Gambar leaderboard di kanan atas (tidak bertabrakan dengan tombol)
-        drawLeaderboardRightSide(g2d);
-
-        // Gambar player input di bawah tombol
-        drawPlayerInputSection(g2d);
-    }
-
-    private void drawButtonsLeftCenter(Graphics2D g2d) {
-        // Posisi tombol di sebelah kiri tengah
-        int buttonStartX = 150; // Geser ke kiri
-        int centerY = getHeight() / 2;
-
-        // Draw Start Game button
-        Rectangle startButtonBounds = new Rectangle(buttonStartX, centerY - BUTTON_HEIGHT - 10, BUTTON_WIDTH,
-                BUTTON_HEIGHT);
-        drawButton(g2d, "START GAME", startButtonBounds, startButtonHovered);
-
-        // Draw Exit button
-        Rectangle exitButtonBounds = new Rectangle(buttonStartX, centerY + 10, BUTTON_WIDTH, BUTTON_HEIGHT);
-        drawButton(g2d, "EXIT", exitButtonBounds, exitButtonHovered);
-    }
-
-    private void drawLeaderboardRightSide(Graphics2D g2d) {
-        // Draw leaderboard di kanan atas (tidak bertabrakan dengan tombol)
-        if (leaderboard != null && !leaderboard.isEmpty()) {
-            // Draw leaderboard background
-            g2d.setColor(new Color(0, 0, 0, 100));
-            g2d.fillRoundRect(480, 230, 250, 350, 15, 15); // Lebih besar dan lebih ke bawah
-
-            // Draw leaderboard border
-            g2d.setColor(new Color(255, 255, 255, 150));
-            g2d.setStroke(new BasicStroke(2));
-            g2d.drawRoundRect(480, 230, 250, 350, 15, 15);
-
-            // Draw leaderboard title
-            g2d.setColor(new Color(255, 215, 0)); // Gold color
-            g2d.setFont(new Font("Arial", Font.BOLD, 20));
-            FontMetrics titleFm = g2d.getFontMetrics();
-            String title = "LEADERBOARD";
-            int titleX = 480 + (250 - titleFm.stringWidth(title)) / 2;
-            g2d.drawString(title, titleX, 265);
-
-            // Draw leaderboard entries
-            g2d.setFont(new Font("Arial", Font.PLAIN, 16));
-            int y = 295;
-            int rank = 1;
-            for (DatabaseManager.Player player : leaderboard) {
-                if (rank > 5)
-                    break; // Show only top 5
-
-                // Highlight hovered entry
-                if (hoveredLeaderboardIndex == rank - 1) {
-                    g2d.setColor(new Color(255, 255, 255, 50));
-                    g2d.fillRoundRect(485, y - 15, 240, 22, 5, 5);
-                    g2d.setColor(new Color(255, 215, 0)); // Gold for hovered text
-                } else {
-                    g2d.setColor(Color.WHITE);
-                }
-                String entry = rank + ". " + player.getName() + " - " + player.getHighScore() + "pts/"
-                        + player.getHighFishCount() + "fish";
-                g2d.drawString(entry, 490, y);
-
-                // Add "Click to play" hint for hovered entry
-                if (hoveredLeaderboardIndex == rank - 1) {
-                    g2d.setFont(new Font("Arial", Font.ITALIC, 12));
-                    g2d.setColor(new Color(200, 200, 200));
-                    g2d.drawString("(Click to play)", 650, y);
-                    g2d.setFont(new Font("Arial", Font.PLAIN, 16));
-                }
-
-                y += 30;
-                rank++;
-            }
-
-            // If no players yet
-            if (leaderboard.isEmpty()) {
-                g2d.setColor(new Color(200, 200, 200));
-                g2d.drawString("No scores yet", 530, 180);
-            }
-        }
-    }
-
     private void drawPlayerInputSection(Graphics2D g2d) {
         // Draw player name input area di bawah tombol
         int inputY = 460;
@@ -375,23 +281,169 @@ public class MainMenuPanel extends JPanel {
         add(playerNameField);
     }
 
-    private void loadLeaderboard() {
-        try {
-            DatabaseManager dbManager = DatabaseManager.getInstance();
-            leaderboard = dbManager.getTopPlayers(5);
-        } catch (Exception e) {
-            System.err.println("Error loading leaderboard: " + e.getMessage());
-        }
+    private void setupLeaderboard() {
+        // Create leaderboard panel
+        leaderboardPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Draw transparent background
+                g2d.setColor(new Color(0, 0, 0, 80));
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+
+                g2d.dispose();
+            }
+        };
+
+        leaderboardPanel.setLayout(new BoxLayout(leaderboardPanel, BoxLayout.Y_AXIS));
+        leaderboardPanel.setOpaque(false);
+
+        // Create scroll pane
+        leaderboardScrollPane = new JScrollPane(leaderboardPanel);
+        leaderboardScrollPane.setBounds(480, 260, 250, 280); // Position and size
+        leaderboardScrollPane.setOpaque(false);
+        leaderboardScrollPane.getViewport().setOpaque(false);
+        leaderboardScrollPane.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(255, 255, 255, 150), 2),
+                BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+
+        // Customize scrollbar
+        JScrollBar verticalScrollBar = leaderboardScrollPane.getVerticalScrollBar();
+        verticalScrollBar.setOpaque(false);
+        verticalScrollBar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                this.thumbColor = new Color(100, 149, 237, 150);
+                this.trackColor = new Color(0, 0, 0, 50);
+            }
+
+            @Override
+            protected JButton createDecreaseButton(int orientation) {
+                return createZeroButton();
+            }
+
+            @Override
+            protected JButton createIncreaseButton(int orientation) {
+                return createZeroButton();
+            }
+
+            private JButton createZeroButton() {
+                JButton button = new JButton();
+                button.setPreferredSize(new Dimension(0, 0));
+                button.setMinimumSize(new Dimension(0, 0));
+                button.setMaximumSize(new Dimension(0, 0));
+                return button;
+            }
+        });
+
+        // Hide horizontal scrollbar
+        leaderboardScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        leaderboardScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+
+        add(leaderboardScrollPane);
+
+        // Add title label
+        JLabel titleLabel = new JLabel("LEADERBOARD");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        titleLabel.setForeground(new Color(255, 215, 0));
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        titleLabel.setBounds(480, 230, 250, 25);
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        add(titleLabel);
     }
 
-    private Rectangle getLeaderboardEntryBounds(int index) {
-        int entryY = 295 + (index * 30);
-        return new Rectangle(480, entryY - 15, 250, 30);
+    private void updateLeaderboardDisplay() {
+        leaderboardPanel.removeAll();
+
+        if (leaderboard != null && !leaderboard.isEmpty()) {
+            int rank = 1;
+            for (DatabaseManager.Player player : leaderboard) {
+                JPanel playerPanel = createPlayerPanel(player, rank);
+                leaderboardPanel.add(playerPanel);
+                // TAMBAHKAN RIGID AREA BIAR GA OVERLAP
+                leaderboardPanel.add(Box.createRigidArea(new Dimension(0, 2))); // 2px gap antar panel
+                rank++;
+            }
+        } else {
+            JLabel noDataLabel = new JLabel("No scores yet");
+            noDataLabel.setFont(new Font("Arial", Font.ITALIC, 14));
+            noDataLabel.setForeground(new Color(200, 200, 200));
+            noDataLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            leaderboardPanel.add(noDataLabel);
+        }
+
+        leaderboardPanel.revalidate();
+        leaderboardPanel.repaint();
+    }
+
+    private JPanel createPlayerPanel(DatabaseManager.Player player, int rank) {
+        JPanel playerPanel = new JPanel(new BorderLayout());
+        playerPanel.setOpaque(false);
+        // FIXED SIZE YANG LEBIH KECIL
+        playerPanel.setMaximumSize(new Dimension(230, 30)); // Lebih kecil
+        playerPanel.setPreferredSize(new Dimension(230, 30)); // Lebih kecil
+        playerPanel.setMinimumSize(new Dimension(230, 30)); // Tambahkan minimum size
+        playerPanel.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8)); // Padding lebih kecil
+        playerPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        // Rank and name
+        JLabel nameLabel = new JLabel(rank + ". " + player.getName());
+        nameLabel.setFont(new Font("Arial", Font.BOLD, 13)); // Font lebih kecil
+        nameLabel.setForeground(Color.WHITE);
+
+        // Score info
+        JLabel scoreLabel = new JLabel(player.getHighScore() + "pts/" + player.getHighFishCount() + "fish");
+        scoreLabel.setFont(new Font("Arial", Font.PLAIN, 11)); // Font lebih kecil
+        scoreLabel.setForeground(new Color(200, 200, 200));
+
+        playerPanel.add(nameLabel, BorderLayout.WEST);
+        playerPanel.add(scoreLabel, BorderLayout.EAST);
+
+        // HOVER EFFECT YANG AMAN
+        playerPanel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                // SET Z-ORDER KE PALING DEPAN
+                leaderboardPanel.setComponentZOrder(playerPanel, 0);
+
+                playerPanel.setOpaque(true);
+                playerPanel.setBackground(new Color(255, 215, 0, 150));
+                nameLabel.setForeground(new Color(0, 0, 0));
+                scoreLabel.setForeground(new Color(50, 50, 50));
+
+                // REPAINT PARENT PANEL JUGA
+                leaderboardPanel.repaint();
+                playerPanel.repaint();
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                playerPanel.setOpaque(false);
+                nameLabel.setForeground(Color.WHITE);
+                scoreLabel.setForeground(new Color(200, 200, 200));
+
+                // REPAINT PARENT PANEL JUGA
+                leaderboardPanel.repaint();
+                playerPanel.repaint();
+            }
+
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                selectPlayerFromLeaderboard(player);
+            }
+        });
+
+        return playerPanel;
     }
 
     private void selectPlayerFromLeaderboard(DatabaseManager.Player player) {
         // Set the player name in the text field
-        playerNameField.setText(player.getName()); // Show confirmation dialog
+        playerNameField.setText(player.getName());
+
+        // Show confirmation dialog
         String message = String.format(
                 "Play as '%s'?\n\nHigh Score: %d points\nBest Fish Count: %d fish",
                 player.getName(),
@@ -410,6 +462,16 @@ public class MainMenuPanel extends JPanel {
             if (startGameListener != null) {
                 startGameListener.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "START_GAME"));
             }
+        }
+    }
+
+    private void loadLeaderboard() {
+        try {
+            DatabaseManager dbManager = DatabaseManager.getInstance();
+            leaderboard = dbManager.getTopPlayers(20); // Load more players for scrolling
+            updateLeaderboardDisplay(); // Update display after loading
+        } catch (Exception e) {
+            System.err.println("Error loading leaderboard: " + e.getMessage());
         }
     }
 

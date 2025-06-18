@@ -6,6 +6,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import view.SoundPlayer;
 
 public class GamePanel extends JPanel
         implements PropertyChangeListener, KeyListener, MouseListener, MouseMotionListener {
@@ -20,8 +21,10 @@ public class GamePanel extends JPanel
     private JLabel timerLabel;
     private JLabel highScoreLabel;
     private JButton backToMenuButton;
+    private SoundPlayer backgroundMusicPlayer;
 
     public GamePanel(GameViewModel gameViewModel) {
+        System.out.println("=== CREATING NEW GAMEPANEL INSTANCE ===");
         this.gameViewModel = gameViewModel;
         setLayout(new BorderLayout());
         setFocusable(true);
@@ -30,6 +33,7 @@ public class GamePanel extends JPanel
         setupUI();
         setupTimers();
         loadBackgroundImage(); // Load background image
+        loadBackgroundMusic(); // Load background music
 
         // Add listeners
         addKeyListener(this);
@@ -38,6 +42,9 @@ public class GamePanel extends JPanel
 
         // Add property change listener
         gameViewModel.addPropertyChangeListener(this);
+
+        // JANGAN AUTO START GAME - akan dipanggil manual setelah GamePanel dibuat
+        System.out.println("=== GAMEPANEL CREATION COMPLETE (NOT STARTED YET) ===");
     }
 
     private void initializeComponents() {
@@ -142,8 +149,7 @@ public class GamePanel extends JPanel
         return overlay;
     }
 
-    private void setupEventListeners() {
-        // Back to menu button
+    private void setupEventListeners() { // Back to menu button
         backToMenuButton.addActionListener(e -> {
             int result = JOptionPane.showConfirmDialog(
                     this,
@@ -152,6 +158,10 @@ public class GamePanel extends JPanel
                     JOptionPane.YES_NO_OPTION);
             if (result == JOptionPane.YES_OPTION) {
                 gameViewModel.stopGame();
+                if (backgroundMusicPlayer != null) {
+                    System.out.println("Stopping music - returning to menu");
+                    backgroundMusicPlayer.stop(); // Stop music when returning to menu
+                }
                 App.showMainMenu();
             }
         });
@@ -197,9 +207,9 @@ public class GamePanel extends JPanel
     }
 
     private void setupTimers() {
-        // UI update timer (30 FPS)
+        // UI update timer (30 FPS) - BUAT tapi jangan start dulu
         uiUpdateTimer = new Timer(1000 / 30, e -> updateGameUI());
-        uiUpdateTimer.start();
+        // Timer akan di-start saat startGame() dipanggil
     }
 
     private void updateGameUI() {
@@ -208,7 +218,14 @@ public class GamePanel extends JPanel
             scoreLabel.setText("Score: " + gameViewModel.getScore());
             fishCountLabel.setText("Fish: " + gameViewModel.getFishCount());
             timerLabel.setText("Time: " + stats.formattedTime);
-            highScoreLabel.setText("High Score: " + stats.highScore);// Update timer color based on remaining time
+            highScoreLabel.setText("High Score: " + stats.highScore);
+
+            // Debug: Print remaining time
+            if (stats.remainingTime <= 5) {
+                System.out.println("=== TIME RUNNING OUT: " + stats.remainingTime + " seconds ===");
+            }
+
+            // Update timer color based on remaining time
             if (stats.remainingTime <= 10) {
                 timerLabel.setForeground(Color.RED);
             } else if (stats.remainingTime <= 30) {
@@ -230,17 +247,21 @@ public class GamePanel extends JPanel
     @Override
     public void propertyChange(PropertyChangeEvent evt) {
         String propertyName = evt.getPropertyName();
+        System.out.println("=== PROPERTY CHANGE: " + propertyName + " = " + evt.getNewValue() + " ===");
 
         switch (propertyName) {
             case "gameOver":
+                System.out.println("=== GAME OVER EVENT RECEIVED ===");
                 SwingUtilities.invokeLater(this::showGameOverDialog);
                 break;
             case "newHighScore":
+                System.out.println("=== NEW HIGH SCORE EVENT RECEIVED ===");
                 SwingUtilities.invokeLater(this::showNewHighScoreDialog);
                 break;
             case "scoreChanged":
             case "remainingTime":
-                // UI will be updated by timer
+                // Force immediate UI update when score or time changes
+                SwingUtilities.invokeLater(this::updateGameUI);
                 break;
         }
     }
@@ -250,6 +271,7 @@ public class GamePanel extends JPanel
     }
 
     private void showGameOverDialog() {
+        System.out.println("=== SHOWING GAME OVER DIALOG ===");
         GameViewModel.GameStats stats = gameViewModel.getGameStats();
         String message;
 
@@ -283,13 +305,16 @@ public class GamePanel extends JPanel
                 null,
                 options,
                 options[0]);
-
         switch (result) {
             case 0: // Play Again
-                gameViewModel.resetGame();
-                gameViewModel.startGame();
+                System.out.println("=== PLAY AGAIN CLICKED - USING FORCE RESTART ===");
+                forceRestartGame();
                 break;
             case 1: // Back to Menu
+                System.out.println("=== BACK TO MENU CLICKED ===");
+                if (backgroundMusicPlayer != null) {
+                    backgroundMusicPlayer.stop(); // Stop music when going to menu
+                }
                 // Use App.showMainMenu() if available
                 try {
                     Class<?> appClass = Class.forName("view.App");
@@ -302,6 +327,10 @@ public class GamePanel extends JPanel
                 break;
             case 2: // Exit
             default:
+                System.out.println("=== EXIT CLICKED ===");
+                if (backgroundMusicPlayer != null) {
+                    backgroundMusicPlayer.stop();
+                }
                 System.exit(0);
                 break;
         }
@@ -332,16 +361,42 @@ public class GamePanel extends JPanel
         if (ikanPanel != null) {
             ikanPanel.cleanup();
         }
+
+        if (backgroundMusicPlayer != null) {
+            backgroundMusicPlayer.close(); // Close the sound clip
+        }
     }
 
     // Public methods for external access
     public void startGame() {
+        System.out.println("=== GAMEPANEL.STARTGAME CALLED ===");
         gameViewModel.startGame();
+
+        // START UI UPDATE TIMER - INI YANG HILANG!
+        if (uiUpdateTimer != null && !uiUpdateTimer.isRunning()) {
+            uiUpdateTimer.start();
+            System.out.println("UI Update timer started");
+        }
+
+        // Initial UI update
+        updateGameUI();
+
+        System.out.println("Starting game - attempting to start background music...");
+        if (backgroundMusicPlayer != null) {
+            System.out.println("Background music player is not null, starting loop...");
+            backgroundMusicPlayer.loop(); // Start looping music when game starts
+        } else {
+            System.out.println("Background music player is null!");
+        }
         requestFocusInWindow();
+        System.out.println("=== GAMEPANEL.STARTGAME COMPLETE ===");
     }
 
     public void stopGame() {
         gameViewModel.stopGame();
+        if (backgroundMusicPlayer != null) {
+            backgroundMusicPlayer.stop(); // Stop music when game stops
+        }
     }
 
     public void setPlayerName(String playerName) {
@@ -353,6 +408,58 @@ public class GamePanel extends JPanel
             backgroundImage = new ImageIcon(getClass().getResource("/assets/backgroundd.png")).getImage();
         } catch (Exception e) {
             System.err.println("Failed to load background image: " + e.getMessage());
+        }
+    } // New method to load background music
+
+    private void loadBackgroundMusic() {
+        System.out.println("Attempting to load background music...");
+        backgroundMusicPlayer = new SoundPlayer("/assets/backgroundmusic.wav");
+        if (backgroundMusicPlayer != null) {
+            System.out.println("Background music player created successfully");
+        } else {
+            System.out.println("Failed to create background music player");
+        }
+    }
+
+    // Method untuk restart background music
+    public void restartBackgroundMusic() {
+        System.out.println("Restarting background music...");
+        if (backgroundMusicPlayer != null) {
+            backgroundMusicPlayer.stop();
+            backgroundMusicPlayer.loop();
+        } else {
+            System.out.println("Background music player is null, reloading...");
+            loadBackgroundMusic();
+            if (backgroundMusicPlayer != null) {
+                backgroundMusicPlayer.loop();
+            }
+        }
+    }
+
+    // Method untuk memulai musik paksa (jika dibutuhkan dari luar)
+    public void forceStartBackgroundMusic() {
+        System.out.println("Force starting background music...");
+        if (backgroundMusicPlayer == null) {
+            loadBackgroundMusic();
+        }
+        if (backgroundMusicPlayer != null) {
+            backgroundMusicPlayer.loop();
+        } else {
+            System.out.println("Failed to force start background music - player is null");
+        }
+    }
+
+    // Method static untuk dipanggil dari game over dialog
+    public static void forceRestartGame() {
+        System.out.println("=== FORCE RESTART GAME CALLED ===");
+        try {
+            Class<?> appClass = Class.forName("view.App");
+            java.lang.reflect.Method restartGameMethod = appClass.getMethod("restartGame");
+            restartGameMethod.invoke(null);
+            System.out.println("=== FORCE RESTART SUCCESS ===");
+        } catch (Exception e) {
+            System.err.println("FAILED to force restart: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -387,6 +494,10 @@ public class GamePanel extends JPanel
                     "Konfirmasi",
                     JOptionPane.YES_NO_OPTION);
             if (result == JOptionPane.YES_OPTION) {
+                if (backgroundMusicPlayer != null) {
+                    System.out.println("Stopping music - returning to menu via mouse click");
+                    backgroundMusicPlayer.stop(); // Stop music when returning to menu
+                }
                 App.showMainMenu();
             }
             return;

@@ -19,9 +19,7 @@ public class GameViewModel {
     private int panelHeight = 600;
     private boolean isGameRunning = false;
     private int score = 0; // Score tracking (total points from fish values)
-    private int fishCount = 0; // Fish count tracking (total number of fish caught)
-
-    // Game timer configuration
+    private int fishCount = 0; // Fish count tracking (total number of fish caught) // Game timer configuration
     private int gameTimeLimit = 60; // 1 menit dalam detik
     private int remainingTime = gameTimeLimit;
     private boolean isTimeUp = false;
@@ -89,9 +87,7 @@ public class GameViewModel {
             ikanViewModel.removeIkan(fish);
             if (tempatMakanViewModel != null) {
                 tempatMakanViewModel.addFish();
-            }
-
-            // Tambah skor berdasarkan jenis ikan
+            } // Tambah skor berdasarkan jenis ikan
             int oldScore = this.score;
             int fishScore = fish.getScore(); // Dapatkan skor dari ikan (10, 20, atau 30)
             this.score += fishScore;
@@ -100,7 +96,7 @@ public class GameViewModel {
             // Tambah jumlah ikan yang ditangkap
             int oldFishCount = this.fishCount;
             this.fishCount += 1;
-            support.firePropertyChange("fishCountChanged", oldFishCount, this.fishCount);
+            support.firePropertyChange("fishCountChanged", oldFishCount, this.fishCount); // DEBUG: Print score update
 
             // Update high score tanpa pop-up
             if (this.score > this.highScore) {
@@ -197,6 +193,7 @@ public class GameViewModel {
             }
 
             support.firePropertyChange("gameRunning", false, true);
+        } else {
         }
     }
 
@@ -303,14 +300,35 @@ public class GameViewModel {
         return stats;
     }
 
-    // Score getter
+    // Getter methods for UI
     public int getScore() {
         return score;
     }
 
-    // Fish count getter
     public int getFishCount() {
         return fishCount;
+    }
+
+    public int getRemainingTime() {
+        return remainingTime;
+    }
+
+    public int getHighScore() {
+        return highScore;
+    }
+
+    public String getFormattedTime() {
+        int minutes = remainingTime / 60;
+        int seconds = remainingTime % 60;
+        return String.format("%02d:%02d", minutes, seconds);
+    }
+
+    public boolean isTimeUp() {
+        return isTimeUp;
+    }
+
+    public boolean isNewHighScore() {
+        return score > 0 && score == highScore;
     }
 
     // Reset score
@@ -327,30 +345,7 @@ public class GameViewModel {
         support.firePropertyChange("fishCountChanged", oldFishCount, this.fishCount);
     }
 
-    // Timer getters
-    public int getRemainingTime() {
-        return remainingTime;
-    }
-
-    public String getFormattedTime() {
-        int minutes = remainingTime / 60;
-        int seconds = remainingTime % 60;
-        return String.format("%02d:%02d", minutes, seconds);
-    }
-
-    public boolean isTimeUp() {
-        return isTimeUp;
-    }
-
-    // High Score getters
-    public int getHighScore() {
-        return highScore;
-    }
-
-    public boolean isNewHighScore() {
-        return score > 0 && score == highScore;
-    } // Method untuk mereset semua game state
-
+    // Method untuk mereset semua game state
     public void resetGameState() {
         // Reset score dan fish count
         this.score = 0;
@@ -525,13 +520,12 @@ public class GameViewModel {
         saveHighScore();
 
         // Stop all timers
-        stopGame();
-
-        // Notify UI game over and that game has ended
+        stopGame(); // Notify UI game over and that game has ended
         support.firePropertyChange("gameOver", false, true);
         support.firePropertyChange("gameEnded", false, true);
-    } // Player name management
+    }
 
+    // Player name management
     public void setCurrentPlayerName(String playerName) {
         if (playerName != null && !playerName.trim().isEmpty()) {
             this.currentPlayerName = playerName.trim();
@@ -548,6 +542,8 @@ public class GameViewModel {
             loadHighScore();
 
             support.firePropertyChange("currentPlayerName", null, this.currentPlayerName);
+        } else {
+            
         }
     }
 
@@ -562,18 +558,23 @@ public class GameViewModel {
     }
 
     private void saveHighScore() {
+
         if (!currentPlayerName.isEmpty()) {
             // Record the game score and fish count (this will update high scores if
             // necessary)
             boolean recorded = databaseManager.recordGameScore(currentPlayerName, score, fishCount);
-
             if (recorded) {
                 // Reload the high score to get the latest value
                 int newHighScore = databaseManager.getHighScore(currentPlayerName);
                 highScore = newHighScore;
+
+                // Fire property change to notify leaderboard refresh
+                support.firePropertyChange("highScore", 0, newHighScore);
             }
+        } else {
+
         }
-    } // Inner class for game statistics
+    }// Inner class for game statistics
 
     public static class GameStats {
         public int fishDelivered = 0;

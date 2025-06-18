@@ -36,13 +36,10 @@ public class App {
         cardLayout = new CardLayout();
         mainContainer = new JPanel(cardLayout);
 
-        // Setup panels
         setupMainMenu();
-        setupGamePanel();
 
-        // Add panels to card layout
+        // Add panels to card layout - hanya main menu dulu
         mainContainer.add(mainMenuPanel, "MENU");
-        mainContainer.add(gamePanel, "GAME");
 
         // Show menu first
         cardLayout.show(mainContainer, "MENU");
@@ -52,9 +49,7 @@ public class App {
     }
 
     private static void setupMainMenu() {
-        mainMenuPanel = new MainMenuPanel();
-
-        // Set event listeners
+        mainMenuPanel = new MainMenuPanel(); // Set event listeners
         mainMenuPanel.setStartGameListener(e -> {
             // Get player name and set it in GameViewModel
             String playerName = mainMenuPanel.getCurrentPlayerName();
@@ -63,11 +58,9 @@ public class App {
                         JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            if (gameViewModel != null) {
-                gameViewModel.setCurrentPlayerName(playerName);
-            }
 
-            startGame();
+            createFreshGamePanel(playerName);
+
             cardLayout.show(mainContainer, "GAME");
         });
 
@@ -81,14 +74,24 @@ public class App {
                 System.exit(0);
             }
         });
-    }
+    } // Method untuk membuat GamePanel baru saat user klik Play
 
-    private static void setupGamePanel() {
+    private static void createFreshGamePanel(String playerName) {
+        
+        // Cleanup existing game panel jika ada
+        if (gamePanel != null) {
+            gamePanel.cleanup();
+            mainContainer.remove(gamePanel);
+            gamePanel = null;
+        }
+
+        // Create completely new GameViewModel
         gameViewModel = new GameViewModel();
-        gameViewModel.setPanelDimensions(800, 600); // GAME AREA 800x600
-
-        // Add property change listener to refresh leaderboard when game ends
+        gameViewModel.setPanelDimensions(800, 600);
+        gameViewModel.setCurrentPlayerName(playerName); // Add property change listener to refresh leaderboard when game
+                                                        // ends
         gameViewModel.addPropertyChangeListener(evt -> {
+            
             if ("gameEnded".equals(evt.getPropertyName()) || "highScore".equals(evt.getPropertyName())) {
                 SwingUtilities.invokeLater(() -> {
                     if (mainMenuPanel != null) {
@@ -98,31 +101,59 @@ public class App {
             }
         });
 
-        // Create main game panel using the new GamePanel
+        // Create completely new GamePanel
         gamePanel = new GamePanel(gameViewModel);
         gamePanel.setPreferredSize(new Dimension(800, 600));
-    }
 
-    private static void startGame() {
-        if (gamePanel != null) {
-            gamePanel.startGame();
-        }
-    } // Method untuk kembali ke menu (bisa dipanggil dari game)
+        // Add to container
+        mainContainer.add(gamePanel, "GAME");
+
+        // Refresh container layout
+        mainContainer.revalidate();
+        mainContainer.repaint();
+
+        // NOW start the game manually - ini baru musik akan mulai!
+        gamePanel.startGame();
+
+    }// Method untuk kembali ke menu (bisa dipanggil dari game)
 
     public static void showMainMenu() {
+        
         if (gamePanel != null) {
             gamePanel.stopGame();
             gamePanel.cleanup();
+            mainContainer.remove(gamePanel);
+            gamePanel = null;
         }
 
         // Reset game state ketika kembali ke menu
         if (gameViewModel != null) {
             gameViewModel.resetGameState();
+            gameViewModel = null;
         }
 
         if (mainMenuPanel != null) {
             mainMenuPanel.refreshLeaderboard();
         }
         cardLayout.show(mainContainer, "MENU");
+    } // Method untuk membuat GamePanel baru saat restart
+
+    public static void restartGame() {
+        
+        // Get current player name if exists
+        String currentPlayer = "";
+        if (mainMenuPanel != null) {
+            currentPlayer = mainMenuPanel.getCurrentPlayerName();
+        }
+        if (currentPlayer == null || currentPlayer.trim().isEmpty()) {
+            currentPlayer = "Player"; // Fallback name
+        }
+
+        // Create fresh game panel
+        createFreshGamePanel(currentPlayer);
+
+        // Show game panel
+        cardLayout.show(mainContainer, "GAME");
+
     }
 }
