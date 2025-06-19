@@ -543,7 +543,7 @@ public class GameViewModel {
 
             support.firePropertyChange("currentPlayerName", null, this.currentPlayerName);
         } else {
-            
+
         }
     }
 

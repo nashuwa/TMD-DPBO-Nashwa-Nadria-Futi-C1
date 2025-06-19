@@ -356,18 +356,30 @@ public class MainMenuPanel extends JPanel {
     }
 
     private void updateLeaderboardDisplay() {
+        System.out.println("=== UPDATING LEADERBOARD DISPLAY ===");
+
+        // PRESERVE SCROLL POSITION
+        int scrollPosition = leaderboardScrollPane.getVerticalScrollBar().getValue();
+
+        // SIMPLE CLEAR AND REBUILD - TIDAK REMOVE SCROLL PANE
         leaderboardPanel.removeAll();
 
         if (leaderboard != null && !leaderboard.isEmpty()) {
+            System.out.println("Found " + leaderboard.size() + " players in leaderboard");
             int rank = 1;
             for (DatabaseManager.Player player : leaderboard) {
+                System.out.println(
+                        "Adding rank " + rank + ": " + player.getName() + " (" + player.getHighScore() + "pts)");
                 JPanel playerPanel = createPlayerPanel(player, rank);
                 leaderboardPanel.add(playerPanel);
-                // TAMBAHKAN RIGID AREA BIAR GA OVERLAP
-                leaderboardPanel.add(Box.createRigidArea(new Dimension(0, 2))); // 2px gap antar panel
+                // TAMBAHKAN VERTICAL STRUT UNTUK CONSISTENT SPACING - REDUCED SPACING
+                if (rank < leaderboard.size()) { // Don't add strut after last item
+                    leaderboardPanel.add(Box.createVerticalStrut(2)); // Reduced from 3 to 2px gap
+                }
                 rank++;
             }
         } else {
+            System.out.println("No players found for leaderboard");
             JLabel noDataLabel = new JLabel("No scores yet");
             noDataLabel.setFont(new Font("Arial", Font.ITALIC, 14));
             noDataLabel.setForeground(new Color(200, 200, 200));
@@ -375,58 +387,69 @@ public class MainMenuPanel extends JPanel {
             leaderboardPanel.add(noDataLabel);
         }
 
-        leaderboardPanel.revalidate();
-        leaderboardPanel.repaint();
+        // STABLE REFRESH - MINIMAL REPAINT
+        SwingUtilities.invokeLater(() -> {
+            leaderboardPanel.revalidate();
+            leaderboardPanel.repaint();
+
+            // RESTORE SCROLL POSITION
+            leaderboardScrollPane.getVerticalScrollBar().setValue(scrollPosition);
+        });
+
+        System.out.println("=== LEADERBOARD DISPLAY UPDATE COMPLETE ===");
     }
 
     private JPanel createPlayerPanel(DatabaseManager.Player player, int rank) {
+        System.out.println(
+                "Creating panel for rank " + rank + ": " + player.getName() + " (" + player.getHighScore() + "pts)");
+
         JPanel playerPanel = new JPanel(new BorderLayout());
         playerPanel.setOpaque(false);
-        // FIXED SIZE YANG LEBIH KECIL
-        playerPanel.setMaximumSize(new Dimension(230, 30)); // Lebih kecil
-        playerPanel.setPreferredSize(new Dimension(230, 30)); // Lebih kecil
-        playerPanel.setMinimumSize(new Dimension(230, 30)); // Tambahkan minimum size
-        playerPanel.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8)); // Padding lebih kecil
+        // CONSISTENT SIZE - TAMBAH SEDIKIT HEIGHT UNTUK AVOID OVERLAP
+        playerPanel.setMaximumSize(new Dimension(230, 32)); // Sedikit lebih tinggi
+        playerPanel.setPreferredSize(new Dimension(230, 32));
+        playerPanel.setMinimumSize(new Dimension(230, 32));
+        // BORDER DENGAN MARGIN YANG CUKUP
+        playerPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createEmptyBorder(1, 1, 1, 1), // Outer margin untuk avoid overlap
+                BorderFactory.createEmptyBorder(4, 8, 4, 8) // Inner padding
+        ));
         playerPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
         // Rank and name
         JLabel nameLabel = new JLabel(rank + ". " + player.getName());
-        nameLabel.setFont(new Font("Arial", Font.BOLD, 13)); // Font lebih kecil
+        nameLabel.setFont(new Font("Arial", Font.BOLD, 13));
         nameLabel.setForeground(Color.WHITE);
 
         // Score info
         JLabel scoreLabel = new JLabel(player.getHighScore() + "pts/" + player.getHighFishCount() + "fish");
-        scoreLabel.setFont(new Font("Arial", Font.PLAIN, 11)); // Font lebih kecil
+        scoreLabel.setFont(new Font("Arial", Font.PLAIN, 11));
         scoreLabel.setForeground(new Color(200, 200, 200));
 
         playerPanel.add(nameLabel, BorderLayout.WEST);
-        playerPanel.add(scoreLabel, BorderLayout.EAST);
-
-        // HOVER EFFECT YANG AMAN
+        playerPanel.add(scoreLabel, BorderLayout.EAST);// Add solid hover effect
         playerPanel.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {
-                // SET Z-ORDER KE PALING DEPAN
-                leaderboardPanel.setComponentZOrder(playerPanel, 0);
-
+                // SOLID GOLD BACKGROUND - OPAQUE PENUH
                 playerPanel.setOpaque(true);
-                playerPanel.setBackground(new Color(255, 215, 0, 150));
-                nameLabel.setForeground(new Color(0, 0, 0));
-                scoreLabel.setForeground(new Color(50, 50, 50));
+                playerPanel.setBackground(new Color(255, 215, 0)); // Solid gold, no transparency
+                nameLabel.setForeground(Color.BLACK);
+                scoreLabel.setForeground(new Color(60, 60, 60));
 
-                // REPAINT PARENT PANEL JUGA
-                leaderboardPanel.repaint();
+                // Repaint hanya panel ini, bukan parent
                 playerPanel.repaint();
             }
 
             @Override
             public void mouseExited(java.awt.event.MouseEvent e) {
+                // KEMBALI KE TRANSPARENT
                 playerPanel.setOpaque(false);
+                playerPanel.setBackground(null);
                 nameLabel.setForeground(Color.WHITE);
                 scoreLabel.setForeground(new Color(200, 200, 200));
 
-                // REPAINT PARENT PANEL JUGA
-                leaderboardPanel.repaint();
+                // Repaint hanya panel ini, bukan parent
                 playerPanel.repaint();
             }
 
@@ -481,8 +504,18 @@ public class MainMenuPanel extends JPanel {
     }
 
     public void refreshLeaderboard() {
+        System.out.println("=== REFRESH LEADERBOARD CALLED ===");
         loadLeaderboard();
-        repaint();
+
+        // Force complete refresh of the scroll pane
+        SwingUtilities.invokeLater(() -> {
+            leaderboardScrollPane.revalidate();
+            leaderboardScrollPane.repaint();
+            this.revalidate();
+            this.repaint();
+        });
+
+        System.out.println("=== REFRESH LEADERBOARD COMPLETE ===");
     }
 
     // Event listener setters

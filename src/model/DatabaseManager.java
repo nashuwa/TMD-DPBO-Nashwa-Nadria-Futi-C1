@@ -138,21 +138,30 @@ public class DatabaseManager {
         List<Player> topPlayers = new ArrayList<>();
         String sql = "SELECT name, high_score, high_fish_count FROM players ORDER BY high_score DESC LIMIT ?";
 
+        System.out.println("=== GETTING TOP PLAYERS (LIMIT: " + limit + ") ===");
+
         try (Connection conn = DriverManager.getConnection(DB_URL);
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, limit);
             ResultSet rs = pstmt.executeQuery();
 
+            int rank = 1;
             while (rs.next()) {
-                topPlayers.add(new Player(
-                        rs.getString("name"),
-                        rs.getInt("high_score"),
-                        rs.getInt("high_fish_count")));
+                String name = rs.getString("name");
+                int score = rs.getInt("high_score");
+                int fishCount = rs.getInt("high_fish_count");
+
+                System.out.println(rank + ". " + name + " - " + score + "pts/" + fishCount + "fish");
+
+                topPlayers.add(new Player(name, score, fishCount));
+                rank++;
             }
         } catch (SQLException e) {
             System.err.println("Error getting top players: " + e.getMessage());
         }
+
+        System.out.println("=== TOP PLAYERS QUERY COMPLETE ===");
         return topPlayers;
     }
 
