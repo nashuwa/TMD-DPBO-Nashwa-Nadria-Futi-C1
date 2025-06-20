@@ -6,128 +6,180 @@ import java.awt.event.KeyEvent;
 import javax.swing.Timer;
 import model.DatabaseManager;
 
-public class GameViewModel {
+/**
+ * GameViewModel - Pengendali utama logika permainan kucing menangkap ikan
+ * 
+ * ALUR PERMAINAN:
+ * 1. Pemain memilih nama dan memulai game dengan timer 60 detik
+ * 2. Kucing digerakkan dengan WASD/Arrow keys untuk menangkap ikan
+ * 3. Klik ikan untuk membuat kucing mengantarkannya ke tempat makan
+ * 4. Setiap ikan memberikan poin berbeda (10-30) berdasarkan jenisnya
+ * 5. Game berakhir saat waktu habis, skor disimpan ke database
+ * 6. Tekan SPACE untuk pause/resume kapan saja
+ * 
+ * FUNGSI UTAMA:
+ * - Mengatur koordinasi antar ViewModel (Kucing, Ikan, TempatMakan)
+ * - Mengelola timer game dan hand tracking untuk animasi
+ * - Menangani input keyboard/mouse dan meneruskannya ke ViewModel yang tepat
+ * - Mengelola sistem scoring dan high score dengan database
+ * - Mengatur pause/resume dan reset game state
+ */
+public class GameViewModel { // Sistem PropertyChangeSupport untuk komunikasi dengan View
     private PropertyChangeSupport support;
-    private KucingViewModelNew kucingViewModelNew;
-    private TempatMakanViewModel tempatMakanViewModel;
-    private IkanViewModel ikanViewModel;
-    private Timer handTrackingTimer; // Timer untuk update hand tracking
-    private Timer gameTimer; // Timer untuk game countdown
 
-    // Game configuration
+    // ViewModel untuk mengelola kucing dan interaksinya
+    private KucingViewModelNew kucingViewModelNew;
+    // ViewModel untuk mengelola tempat makan kucing
+    private TempatMakanViewModel tempatMakanViewModel;
+    // ViewModel untuk mengelola ikan-ikan dalam game
+    private IkanViewModel ikanViewModel;
+
+    // Timer untuk update hand tracking kucing (30 FPS)
+    private Timer handTrackingTimer;
+    // Timer untuk countdown waktu permainan (1 detik)
+    private Timer gameTimer;
+
+    // Konfigurasi ukuran panel game
     private int panelWidth = 800;
     private int panelHeight = 600;
+
+    // Status permainan utama
     private boolean isGameRunning = false;
-    private int score = 0; // Score tracking (total points from fish values)
-    private int fishCount = 0; // Fish count tracking (total number of fish caught) // Game timer configuration
-    private int gameTimeLimit = 60; // 1 menit dalam detik
-    private int remainingTime = gameTimeLimit;
-    private boolean isTimeUp = false;
-    private int highScore = 0; // High score tracking
+    private boolean isPaused = false;
+    private boolean spaceKeyPressed = false; // Mencegah pause berulang saat spasi ditahan
 
-    // Player management
-    private String currentPlayerName = "";
-    private DatabaseManager databaseManager;
+    // Sistem scoring permainan
+    private int score = 0; // Total poin dari nilai ikan yang ditangkap
+    private int fishCount = 0; // Jumlah ikan yang berhasil ditangkap // Konfigurasi timer permainan
+    private int gameTimeLimit = 60; // Durasi permainan dalam detik (1 menit)
+    private int remainingTime = gameTimeLimit; // Waktu tersisa
+    private boolean isTimeUp = false; // Flag apakah waktu sudah habis
+    private int highScore = 0; // Skor tertinggi pemain saat ini
 
+    // Manajemen pemain dan database
+    private String currentPlayerName = ""; // Nama pemain yang sedang bermain
+    private DatabaseManager databaseManager; // Koneksi ke database untuk menyimpan skor
+
+    // Constructor utama - inisialisasi semua komponen game
     public GameViewModel() {
+        // Setup sistem notifikasi perubahan
         support = new PropertyChangeSupport(this);
+        // Inisialisasi database manager
         databaseManager = DatabaseManager.getInstance();
+
+        // Inisialisasi semua ViewModel dan setup koneksi antar mereka
         initializeViewModels();
+        // Setup timer untuk hand tracking animasi
         setupHandTracking();
+        // Setup timer untuk countdown permainan
         setupGameTimer();
+        // Load skor tertinggi dari database
         loadHighScore();
-    }
+    } // Setup timer untuk hand tracking animasi kucing
 
     private void setupHandTracking() {
-        // Timer untuk update hand tracking (30 FPS)
+        // Timer berjalan 30 kali per detik untuk animasi yang smooth
         handTrackingTimer = new Timer(1000 / 30, e -> updateHandTracking());
-    } // State untuk pengantaran ikan
+    }
 
+    // State untuk proses pengantaran ikan ke tempat makan
     private model.Ikan carriedFish = null;
 
+    // Update hand tracking dan proses pengantaran ikan setiap frame
     private void updateHandTracking() {
-        if (!isGameRunning) {
+        // Hanya update jika game sedang berjalan dan tidak di-pause
+        if (!isGameRunning || isPaused) {
             return;
         }
 
-        // Update delivery process
+        // Proses pengantaran ikan yang sedang dibawa kucing
         updateFishDelivery();
-    }
+    } // Proses pengantaran ikan ke tempat makan
 
     private void updateFishDelivery() {
+        // Pastikan ada ikan yang sedang dibawa dan semua komponen tersedia
         if (carriedFish != null && kucingViewModelNew != null && tempatMakanViewModel != null) {
             // 1. Buat ikan mengikuti posisi tangan kucing
             KucingViewModelNew.KucingViewData kucingData = kucingViewModelNew.getKucingViewData();
             if (kucingData != null) {
+                // Posisikan ikan di tengah tangan kucing
                 carriedFish.setPosX(kucingData.handX - carriedFish.getWidth() / 2);
                 carriedFish.setPosY(kucingData.handY - carriedFish.getHeight() / 2);
             }
 
-            // 2. Cek apakah tangan sudah sampai di tempat makan
+            // 2. Cek apakah tangan kucing sudah sampai di tempat makan
             model.TempatMakan tmModel = tempatMakanViewModel.getModel();
             if (tmModel != null) {
+                // Hitung jarak antara tangan dan pusat tempat makan
                 int handX = kucingViewModelNew.getHandX();
                 int handY = kucingViewModelNew.getHandY();
                 double distance = Math
                         .sqrt(Math.pow(handX - tmModel.getCenterX(), 2) + Math.pow(handY - tmModel.getCenterY(), 2));
 
                 // Jika jarak cukup dekat, selesaikan pengantaran
-                if (distance < 50) { // Increase threshold
-                    handleFishDelivered(carriedFish); // Reset state pengantaran
+                if (distance < 50) { // Threshold 50 pixel untuk deteksi
+                    handleFishDelivered(carriedFish);
+                    // Reset semua state pengantaran
                     this.carriedFish = null;
                     kucingViewModelNew.getModel().setHandDelivering(false);
                     kucingViewModelNew.setHandActive(false); // Tangan akan kembali ke kucing
                 }
             }
         }
-    }
+    } // Menangani ikan yang berhasil diantarkan ke tempat makan
 
     private void handleFishDelivered(model.Ikan fish) {
         if (fish != null) {
+            // Hapus ikan dari daftar ikan yang tersedia
             ikanViewModel.removeIkan(fish);
+            // Tambahkan ikan ke tempat makan
             if (tempatMakanViewModel != null) {
                 tempatMakanViewModel.addFish();
-            } // Tambah skor berdasarkan jenis ikan
+            }
+
+            // Hitung dan tambahkan skor berdasarkan jenis ikan
             int oldScore = this.score;
-            int fishScore = fish.getScore(); // Dapatkan skor dari ikan (10, 20, atau 30)
+            int fishScore = fish.getScore(); // Dapatkan nilai poin ikan (10, 20, atau 30)
             this.score += fishScore;
+            // Beritahu UI bahwa skor berubah
             support.firePropertyChange("scoreChanged", oldScore, this.score);
 
-            // Tambah jumlah ikan yang ditangkap
+            // Tambah counter jumlah ikan yang ditangkap
             int oldFishCount = this.fishCount;
             this.fishCount += 1;
-            support.firePropertyChange("fishCountChanged", oldFishCount, this.fishCount); // DEBUG: Print score update
+            // Beritahu UI bahwa jumlah ikan berubah
+            support.firePropertyChange("fishCountChanged", oldFishCount, this.fishCount);
 
-            // Update high score tanpa pop-up
+            // Update high score secara real-time tanpa pop-up
             if (this.score > this.highScore) {
                 this.highScore = this.score;
             }
         }
-    }
+    } // Inisialisasi semua ViewModel dan setup komunikasi antar mereka
 
     private void initializeViewModels() {
-        // Initialize KucingViewModelNew with all game logic
+        // Inisialisasi ViewModel kucing dengan semua logika game
         kucingViewModelNew = new KucingViewModelNew();
 
-        // Initialize IkanViewModel
+        // Inisialisasi ViewModel ikan
         ikanViewModel = new IkanViewModel();
 
-        // Initialize other ViewModels (if needed separately)
-        // tempatMakanViewModel akan dibuat setelah setPanelDimensions dipanggil
+        // TempatMakanViewModel akan dibuat setelah setPanelDimensions dipanggil
+        // karena memerlukan koordinat yang tepat
 
-        // Forward property changes from child ViewModels
+        // Setup forwarding event dari KucingViewModelNew ke GameViewModel
         kucingViewModelNew.addPropertyChangeListener(evt -> {
-            // Forward all kucing events to our listeners
+            // Teruskan semua event kucing ke listener GameViewModel
             support.firePropertyChange(evt.getPropertyName(), evt.getOldValue(), evt.getNewValue());
 
-            // Handle special events
+            // Handle event khusus untuk pembuatan tempat makan
             if ("tempatMakanCreated".equals(evt.getPropertyName())) {
-                // Create TempatMakanViewModel when tempat makan is created
+                // Buat TempatMakanViewModel ketika tempat makan sudah dibuat
                 if (evt.getNewValue() instanceof model.TempatMakan) {
                     tempatMakanViewModel = new TempatMakanViewModel((model.TempatMakan) evt.getNewValue());
-                    tempatMakanViewModel.setVisible(false); // Start hidden
+                    tempatMakanViewModel.setVisible(false); // Mulai dengan tersembunyi
 
-                    // Forward tempat makan events
+                    // Setup forwarding event dari TempatMakanViewModel
                     tempatMakanViewModel.addPropertyChangeListener(tempatMakanEvt -> {
                         support.firePropertyChange(tempatMakanEvt.getPropertyName(),
                                 tempatMakanEvt.getOldValue(),
@@ -137,321 +189,393 @@ public class GameViewModel {
             }
         });
 
-        // Forward KucingViewModelNew events
+        // Setup forwarding event dari KucingViewModelNew (backup listener)
         if (kucingViewModelNew != null) {
             kucingViewModelNew.addPropertyChangeListener(evt -> {
                 support.firePropertyChange(evt.getPropertyName(), evt.getOldValue(), evt.getNewValue());
             });
-        } // Forward IkanViewModel events
+        }
+
+        // Setup forwarding event dari IkanViewModel
         if (ikanViewModel != null) {
             ikanViewModel.addPropertyChangeListener(evt -> {
                 support.firePropertyChange(evt.getPropertyName(), evt.getOldValue(), evt.getNewValue());
-                // Fish delivery scoring sudah dihandle di handleFishDelivered()
+                // Scoring untuk delivery ikan sudah dihandle di handleFishDelivered()
             });
         }
-    } // Game configuration methods
+    } // Method konfigurasi game
 
+    // Mengatur ukuran panel game dan update semua ViewModel terkait
     public void setPanelDimensions(int width, int height) {
         int oldWidth = this.panelWidth;
         int oldHeight = this.panelHeight;
 
+        // Update ukuran panel lokal
         this.panelWidth = width;
         this.panelHeight = height;
+
+        // Update ukuran panel di KucingViewModel
         if (kucingViewModelNew != null) {
             kucingViewModelNew.setPanelDimensions(width, height);
         }
 
+        // Beritahu UI bahwa dimensi panel berubah
         support.firePropertyChange("panelDimensions",
                 new java.awt.Dimension(oldWidth, oldHeight),
                 new java.awt.Dimension(width, height));
     }
 
+    // Memulai permainan baru
     public void startGame() {
         if (!isGameRunning) {
             // SELALU reset semua game state sebelum memulai game baru
             resetGameState();
 
+            // Set flag game sedang berjalan
             isGameRunning = true;
 
+            // Mulai loop game dan animasi kucing
             if (kucingViewModelNew != null) {
                 kucingViewModelNew.startGameLoop();
                 kucingViewModelNew.startAnimation();
             }
+            // Mulai pergerakan ikan
             if (ikanViewModel != null) {
                 ikanViewModel.startMovement();
             }
 
-            // Start hand tracking timer
+            // Mulai timer hand tracking jika belum berjalan
             if (handTrackingTimer != null && !handTrackingTimer.isRunning()) {
                 handTrackingTimer.start();
             }
 
-            // Start game timer
+            // Mulai timer countdown game
             if (gameTimer != null && !gameTimer.isRunning()) {
-                remainingTime = gameTimeLimit; // Reset remaining time
+                remainingTime = gameTimeLimit; // Reset waktu tersisa
                 gameTimer.start();
             }
 
+            // Beritahu UI bahwa game sudah dimulai
             support.firePropertyChange("gameRunning", false, true);
-        } else {
         }
-    }
+    } // Menghentikan permainan
 
     public void stopGame() {
         if (isGameRunning) {
+            // Set flag game tidak berjalan
             isGameRunning = false;
 
-            // Stop hand tracking timer
+            // Hentikan timer hand tracking
             if (handTrackingTimer != null && handTrackingTimer.isRunning()) {
                 handTrackingTimer.stop();
             }
 
-            // Stop game timer
+            // Hentikan timer countdown game
             if (gameTimer != null && gameTimer.isRunning()) {
                 gameTimer.stop();
             }
 
+            // Beritahu UI bahwa game sudah dihentikan
             support.firePropertyChange("gameRunning", true, false);
         }
     }
 
-    // Delegate methods to child ViewModels
+    // Method delegasi untuk mengontrol ViewModel anak
+
+    // Mengatur kecepatan pergerakan kucing
     public void setKucingVelocity(int vx, int vy) {
         if (kucingViewModelNew != null) {
             kucingViewModelNew.setKucingVelocity(vx, vy);
         }
     }
 
+    // Mengaktifkan/menonaktifkan tangan kucing
     public void setHandActive(boolean active) {
         if (kucingViewModelNew != null) {
             kucingViewModelNew.setHandActive(active);
         }
     }
 
+    // Mengatur target posisi tangan kucing
     public void setHandTarget(int x, int y) {
         if (kucingViewModelNew != null) {
             kucingViewModelNew.setHandTarget(x, y);
         }
     }
 
+    // Mengatur hover effect di tempat makan
     public void setTempatMakanHover(int mouseX, int mouseY) {
         if (kucingViewModelNew != null) {
             kucingViewModelNew.setTempatMakanHover(mouseX, mouseY);
         }
-    }
+    } // Method akses data untuk Views
 
-    // Data access methods for Views
+    // Getter untuk ViewModel kucing (versi utama)
     public KucingViewModelNew getKucingViewModel() {
         return kucingViewModelNew;
     }
 
+    // Getter untuk ViewModel kucing (versi baru)
     public KucingViewModelNew getKucingViewModelNew() {
         return kucingViewModelNew;
     }
 
-    // For backward compatibility - return KucingViewModelNew as main kucing
-    // viewmodel
+    // Getter untuk backward compatibility - mengembalikan KucingViewModelNew
+    // sebagai main
     public KucingViewModelNew getKucingViewModel2() {
         return kucingViewModelNew;
     }
 
+    // Getter untuk ViewModel tempat makan
     public TempatMakanViewModel getTempatMakanViewModel() {
         return tempatMakanViewModel;
     }
 
+    // Getter untuk ViewModel ikan
     public IkanViewModel getIkanViewModel() {
         return ikanViewModel;
-    } // Game stats for status panel
+    } // Mengambil statistik game untuk ditampilkan di panel status
 
     public GameStats getGameStats() {
         GameStats stats = new GameStats();
 
+        // Ambil data dari KucingViewModel jika tersedia
         if (kucingViewModelNew != null) {
             stats.fishDelivered = kucingViewModelNew.getFishDelivered();
             stats.isCarrying = kucingViewModelNew.isCarryingFish();
             stats.availableFish = kucingViewModelNew.getIkanViewData().size();
         }
 
+        // Ambil data dari TempatMakanViewModel jika tersedia
         if (tempatMakanViewModel != null) {
             stats.fishInBowl = tempatMakanViewModel.getTempatMakanViewData().fishCount;
-        } // Update with our new score system
-        stats.fishDelivered = this.fishCount; // Jumlah ikan yang ditangkap (count)
-        // Note: stats.fishDelivered akan menunjukkan jumlah ikan, bukan total skor
+        }
+
+        // Update dengan sistem scoring yang baru
+        stats.fishDelivered = this.fishCount; // Jumlah ikan yang ditangkap (bukan total skor)
+
+        // Ambil jumlah ikan yang tersedia dari IkanViewModel
         if (ikanViewModel != null) {
             stats.availableFish = ikanViewModel.getAvailableIkanCount();
         }
+
+        // Update status game
         stats.isGameRunning = isGameRunning;
 
-        // Add timer and high score information
+        // Tambahkan informasi timer dan high score
         stats.remainingTime = this.remainingTime;
         stats.formattedTime = getFormattedTime();
         stats.isTimeUp = this.isTimeUp;
 
-        // Get current high score from database to ensure it's up-to-date
+        // Ambil high score terkini dari database untuk memastikan akurasi
         if (!currentPlayerName.isEmpty()) {
             stats.highScore = databaseManager.getHighScore(currentPlayerName);
-            this.highScore = stats.highScore; // Update local highScore as well
+            this.highScore = stats.highScore; // Update high score lokal juga
         } else {
             stats.highScore = this.highScore;
         }
 
+        // Cek apakah ini adalah high score baru
         stats.isNewHighScore = isNewHighScore();
 
         return stats;
-    }
+    } // Method getter untuk UI
 
-    // Getter methods for UI
+    // Mendapatkan skor saat ini
     public int getScore() {
         return score;
     }
 
+    // Mendapatkan jumlah ikan yang ditangkap
     public int getFishCount() {
         return fishCount;
     }
 
+    // Mendapatkan waktu tersisa dalam detik
     public int getRemainingTime() {
         return remainingTime;
     }
 
+    // Mendapatkan high score saat ini
     public int getHighScore() {
         return highScore;
     }
 
+    // Mendapatkan waktu tersisa dalam format MM:SS
     public String getFormattedTime() {
         int minutes = remainingTime / 60;
         int seconds = remainingTime % 60;
         return String.format("%02d:%02d", minutes, seconds);
     }
 
+    // Mengecek apakah waktu sudah habis
     public boolean isTimeUp() {
         return isTimeUp;
     }
 
+    // Mengecek apakah skor saat ini adalah high score baru
     public boolean isNewHighScore() {
         return score > 0 && score == highScore;
     }
 
-    // Reset score
+    // Method reset untuk permainan
+
+    // Reset skor ke nol
     public void resetScore() {
         int oldScore = this.score;
         this.score = 0;
         support.firePropertyChange("scoreChanged", oldScore, this.score);
     }
 
-    // Reset fish count
+    // Reset jumlah ikan yang ditangkap ke nol
     public void resetFishCount() {
         int oldFishCount = this.fishCount;
         this.fishCount = 0;
         support.firePropertyChange("fishCountChanged", oldFishCount, this.fishCount);
-    }
+    } // Method untuk mereset semua state permainan ke kondisi awal
 
-    // Method untuk mereset semua game state
     public void resetGameState() {
-        // Reset score dan fish count
+        // Reset skor dan jumlah ikan ke nol
         this.score = 0;
         this.fishCount = 0;
 
-        // Reset timer
+        // Reset timer ke waktu awal
         this.remainingTime = gameTimeLimit;
         this.isTimeUp = false;
 
-        // Reset carried fish state
+        // Reset state ikan yang sedang dibawa
         this.carriedFish = null;
 
-        // Reset kucing state
+        // Reset state kucing ke kondisi awal
         if (kucingViewModelNew != null) {
             kucingViewModelNew.setHandActive(false);
             kucingViewModelNew.getModel().setHandDelivering(false);
         }
 
-        // Fire property changes untuk update UI
+        // Beritahu UI tentang perubahan state
         support.firePropertyChange("scoreChanged", -1, this.score);
         support.firePropertyChange("fishCountChanged", -1, this.fishCount);
         support.firePropertyChange("remainingTime", -1, this.remainingTime);
         support.firePropertyChange("gameReset", false, true);
     }
 
-    // Reset game method
+    // Method reset game (alternative untuk backward compatibility)
     public void resetGame() {
+        // Reset semua komponen score dan timer
         resetScore();
         resetFishCount();
         remainingTime = gameTimeLimit;
         isTimeUp = false;
+
+        // Beritahu UI tentang reset
         support.firePropertyChange("gameReset", false, true);
         support.firePropertyChange("remainingTime", 0, remainingTime);
     }
 
-    // Game state getters
+    // Method getter untuk state permainan
+
+    // Mengecek apakah game sedang berjalan
     public boolean isGameRunning() {
         return isGameRunning;
     }
 
+    // Mengecek apakah game sedang di-pause
     public boolean isPaused() {
-        return false; // Game tidak punya pause lagi
+        return isPaused;
     }
 
+    // Mendapatkan lebar panel game
     public int getPanelWidth() {
         return panelWidth;
-    }
+    } // Mendapatkan tinggi panel game
 
     public int getPanelHeight() {
         return panelHeight;
     }
 
-    // Property change listener support
+    // Support untuk PropertyChange listener // Menambahkan listener untuk
+    // mendengarkan perubahan property
     public void addPropertyChangeListener(PropertyChangeListener listener) {
         support.addPropertyChangeListener(listener);
     }
 
+    // Menghapus listener yang tidak diperlukan lagi
     public void removePropertyChangeListener(PropertyChangeListener listener) {
         support.removePropertyChangeListener(listener);
     }
 
-    // Event handling methods for KucingPanel
+    // Method penanganan event input dari UI
+
+    // Menangani tombol keyboard yang ditekan
     public void handleKeyPressed(int keyCode) {
+        // Handle pause/resume dengan tombol SPACE - hanya sekali per key press
+        if (keyCode == KeyEvent.VK_SPACE) {
+            if (!spaceKeyPressed) { // Hanya toggle jika space belum ditekan sebelumnya
+                spaceKeyPressed = true;
+                togglePause(); // Toggle status pause/resume
+            }
+            return; // Keluar dari method setelah handle pause
+        }
+
+        // Jika game sedang pause, jangan proses input movement
+        if (isPaused) {
+            return;
+        }
+
+        // Proses input pergerakan kucing menggunakan KucingViewModelNew
         if (kucingViewModelNew != null) {
-            // Handle movement keys using KucingViewModelNew
             switch (keyCode) {
                 case KeyEvent.VK_W:
                 case KeyEvent.VK_UP:
+                    // Gerak ke atas
                     kucingViewModelNew.setKucingVelocity(0, -5);
                     break;
                 case KeyEvent.VK_S:
                 case KeyEvent.VK_DOWN:
+                    // Gerak ke bawah
                     kucingViewModelNew.setKucingVelocity(0, 5);
                     break;
                 case KeyEvent.VK_A:
                 case KeyEvent.VK_LEFT:
+                    // Gerak ke kiri
                     kucingViewModelNew.setKucingVelocity(-5, 0);
                     break;
                 case KeyEvent.VK_D:
                 case KeyEvent.VK_RIGHT:
+                    // Gerak ke kanan
                     kucingViewModelNew.setKucingVelocity(5, 0);
                     break;
-                // SPACE key tidak lagi digunakan untuk pause
             }
         }
     }
 
-    public void handleKeyReleased() {
+    // Menangani tombol keyboard yang dilepas
+    public void handleKeyReleased(int keyCode) {
+        // Reset flag space key ketika tombol space dilepas
+        if (keyCode == KeyEvent.VK_SPACE) {
+            spaceKeyPressed = false;
+            return;
+        }
+
+        // Hentikan pergerakan kucing ketika tombol movement dilepas
         if (kucingViewModelNew != null) {
-            // Stop movement when key is released
             kucingViewModelNew.setKucingVelocity(0, 0);
         }
-    }
+    } // Menangani klik mouse pada game panel
 
     public void handleMousePressed(int x, int y) {
-        if (kucingViewModelNew != null && carriedFish == null) { // Hanya bisa beraksi jika tidak sedang membawa ikan
-            // Cek apakah pengguna mengklik ikan
+        // Hanya bisa beraksi jika kucing tidak sedang membawa ikan
+        if (kucingViewModelNew != null && carriedFish == null) {
+            // Cek apakah pengguna mengklik ikan yang tersedia
             if (ikanViewModel != null) {
                 model.Ikan clickedFish = ikanViewModel.findClickedFish(x, y);
                 if (clickedFish != null) {
                     // Ikan diklik, mulai proses pengantaran
                     this.carriedFish = clickedFish;
-                    ikanViewModel.setIkanBeingCarried(this.carriedFish, true); // Beri tahu IkanViewModel agar ikan ini
-                                                                               // tidak bergerak sendiri
+                    // Beri tahu IkanViewModel agar ikan ini tidak bergerak sendiri
+                    ikanViewModel.setIkanBeingCarried(this.carriedFish, true);
 
-                    // Aktifkan tangan dan arahkan ke ikan dulu
+                    // Aktifkan tangan kucing dan arahkan ke posisi ikan
                     kucingViewModelNew.setHandActive(true);
                     kucingViewModelNew.setHandTarget(clickedFish.getCenterX(), clickedFish.getCenterY());
 
@@ -459,143 +583,192 @@ public class GameViewModel {
                     if (tempatMakanViewModel != null) {
                         model.TempatMakan tmModel = tempatMakanViewModel.getModel();
                         if (tmModel != null) {
-                            // Gunakan metode di model Kucing untuk memulai animasi pengantaran
+                            // Mulai animasi pengantaran ke tempat makan
                             kucingViewModelNew.getModel().startDeliveryToFoodBowl(tmModel.getCenterX(),
                                     tmModel.getCenterY());
                         }
                     }
-                    return; // Aksi selesai untuk klik ini
+                    return; // Selesai menangani klik pada ikan
                 }
             }
 
-            // Jika tidak ada ikan yang diklik, aktifkan tangan di posisi mouse (perilaku
-            // normal)
+            // Jika tidak ada ikan yang diklik, aktifkan tangan di posisi mouse
+            // (perilaku normal untuk interaksi umum)
             kucingViewModelNew.setHandActive(true);
             kucingViewModelNew.setHandTarget(x, y);
         }
     }
 
+    // Menangani mouse button yang dilepas
     public void handleMouseReleased() {
-        if (kucingViewModelNew != null && carriedFish == null) { // Hanya deactivate jika tidak sedang membawa ikan
-            // Deactivate hand
+        // Hanya deactivate tangan jika tidak sedang membawa ikan
+        if (kucingViewModelNew != null && carriedFish == null) {
+            // Nonaktifkan tangan kucing
             kucingViewModelNew.setHandActive(false);
         }
     }
 
+    // Menangani pergerakan mouse di atas game panel
     public void handleMouseMoved(int x, int y) {
         if (kucingViewModelNew != null) {
-            // Update hand target if hand is active
+            // Update target tangan jika tangan sedang aktif
             if (kucingViewModelNew.isHandActive()) {
                 kucingViewModelNew.setHandTarget(x, y);
             }
-        }
-
-        // Also check hover over tempat makan using KucingViewModelNew
+        } // Cek hover effect di tempat makan menggunakan KucingViewModelNew
         if (kucingViewModelNew != null) {
             kucingViewModelNew.setTempatMakanHover(x, y);
         }
     }
 
-    private void setupGameTimer() { // Timer untuk countdown game (update setiap 1 detik)
+    // Setup timer untuk countdown permainan
+    private void setupGameTimer() {// Timer untuk countdown game (update setiap 1 detik) // Timer berjalan setiap 1
+                                   // detik untuk mengurangi waktu tersisa
         gameTimer = new Timer(1000, e -> {
-            if (isGameRunning) {
+            // Hanya countdown jika game berjalan dan tidak di-pause
+            if (isGameRunning && !isPaused) {
                 remainingTime--;
 
-                // Notify UI untuk update display
+                // Beritahu UI untuk update tampilan waktu
                 support.firePropertyChange("remainingTime", remainingTime + 1, remainingTime);
 
-                // Check game over
+                // Cek apakah waktu sudah habis
                 if (remainingTime <= 0) {
-                    gameOver();
+                    gameOver(); // Akhiri permainan
                 }
             }
         });
     }
 
+    // Menangani akhir permainan ketika waktu habis
     private void gameOver() {
+        // Set flag bahwa waktu sudah habis
         isTimeUp = true;
         isGameRunning = false;
 
-        // Save score regardless of whether it's a high score
+        // Simpan skor ke database
         saveHighScore();
 
-        // Stop all timers
-        stopGame(); // Notify UI game over and that game has ended
+        // Hentikan semua timer
+        stopGame();
+
+        // Beritahu UI bahwa game berakhir
         support.firePropertyChange("gameOver", false, true);
         support.firePropertyChange("gameEnded", false, true);
-    }
+    } // Manajemen nama pemain dan database
 
-    // Player name management
+    // Mengatur nama pemain yang sedang bermain
     public void setCurrentPlayerName(String playerName) {
         if (playerName != null && !playerName.trim().isEmpty()) {
             this.currentPlayerName = playerName.trim();
 
-            // Add player to database if doesn't exist
+            // Tambahkan pemain ke database jika belum ada
             if (!databaseManager.playerExists(this.currentPlayerName)) {
                 databaseManager.addPlayer(this.currentPlayerName);
             }
 
-            // Reset game state untuk player baru
+            // Reset game state untuk pemain baru
             resetGameForNewPlayer();
 
-            // Load player's high score
+            // Load high score pemain dari database
             loadHighScore();
 
+            // Beritahu UI bahwa nama pemain berubah
             support.firePropertyChange("currentPlayerName", null, this.currentPlayerName);
-        } else {
-
         }
     }
 
+    // Mendapatkan nama pemain saat ini
     public String getCurrentPlayerName() {
         return currentPlayerName;
     }
 
+    // Load high score pemain dari database
     private void loadHighScore() {
         if (!currentPlayerName.isEmpty()) {
             highScore = databaseManager.getHighScore(currentPlayerName);
         }
     }
 
+    // Simpan skor permainan ke database
     private void saveHighScore() {
-
         if (!currentPlayerName.isEmpty()) {
-            // Record the game score and fish count (this will update high scores if
-            // necessary)
+            // Catat skor dan jumlah ikan ke database (akan update high score jika perlu)
             boolean recorded = databaseManager.recordGameScore(currentPlayerName, score, fishCount);
             if (recorded) {
-                // Reload the high score to get the latest value
+                // Reload high score untuk mendapatkan nilai terbaru
                 int newHighScore = databaseManager.getHighScore(currentPlayerName);
                 highScore = newHighScore;
 
-                // Fire property change to notify leaderboard refresh
+                // Beritahu UI untuk refresh leaderboard
                 support.firePropertyChange("highScore", 0, newHighScore);
             }
-        } else {
-
         }
-    }// Inner class for game statistics
+    }
 
+    // Inner class untuk statistik permainan yang akan ditampilkan di UI
     public static class GameStats {
-        public int fishDelivered = 0;
-        public int fishInBowl = 0;
-        public int availableFish = 0;
-        public boolean isCarrying = false;
-        public boolean isGameRunning = false;
-        public int remainingTime = 60;
-        public String formattedTime = "01:00";
-        public boolean isTimeUp = false;
-        public int highScore = 0;
-        public boolean isNewHighScore = false;
-    } // Reset game state untuk player baru
+        public int fishDelivered = 0; // Jumlah ikan yang berhasil diantarkan
+        public int fishInBowl = 0; // Jumlah ikan di tempat makan
+        public int availableFish = 0; // Jumlah ikan yang tersedia untuk ditangkap
+        public boolean isCarrying = false; // Apakah kucing sedang membawa ikan
+        public boolean isGameRunning = false; // Status apakah game sedang berjalan
+        public int remainingTime = 60; // Waktu tersisa dalam detik
+        public String formattedTime = "01:00"; // Waktu tersisa dalam format MM:SS
+        public boolean isTimeUp = false; // Apakah waktu sudah habis
+        public int highScore = 0; // Skor tertinggi pemain
+        public boolean isNewHighScore = false; // Apakah ini adalah high score baru
+    }
 
+    // Reset game state untuk pemain baru
     private void resetGameForNewPlayer() {
-        // Stop game jika sedang berjalan
+        // Hentikan game jika sedang berjalan
         if (isGameRunning) {
             stopGame();
+        } // Gunakan resetGameState() untuk konsistensi
+        resetGameState();
+    }
+
+    // Method untuk toggle pause/resume permainan
+    public void togglePause() {
+        // Tidak bisa pause jika game tidak sedang berjalan
+        if (!isGameRunning) {
+            return;
         }
 
-        // Gunakan resetGameState() untuk konsistensi
-        resetGameState();
+        // Toggle status pause
+        isPaused = !isPaused;
+
+        if (isPaused) {
+            // PAUSE GAME - hentikan semua timer dan aktivitas
+            if (gameTimer != null && gameTimer.isRunning()) {
+                gameTimer.stop();
+            }
+            if (handTrackingTimer != null && handTrackingTimer.isRunning()) {
+                handTrackingTimer.stop();
+            }
+            // Hentikan pergerakan ikan
+            if (ikanViewModel != null) {
+                ikanViewModel.stopMovement();
+            }
+
+            // Beritahu UI untuk menampilkan overlay pause
+            support.firePropertyChange("gamePaused", false, true);
+        } else {
+            // RESUME GAME - jalankan kembali semua timer dan aktivitas
+            if (gameTimer != null && !gameTimer.isRunning()) {
+                gameTimer.start();
+            }
+            if (handTrackingTimer != null && !handTrackingTimer.isRunning()) {
+                handTrackingTimer.start();
+            }
+            // Lanjutkan pergerakan ikan
+            if (ikanViewModel != null) {
+                ikanViewModel.startMovement();
+            }
+
+            // Beritahu UI untuk menyembunyikan overlay pause
+            support.firePropertyChange("gameResumed", false, true);
+        }
     }
 }

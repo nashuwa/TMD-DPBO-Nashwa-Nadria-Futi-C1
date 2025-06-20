@@ -15,7 +15,7 @@ public class MainMenuPanel extends JPanel {
     private Font titleFont;
     private Font buttonFont;
 
-    // Colors
+    // Membuat constant variables untuk warna dan ukuran
     private final Color TITLE_COLOR = new Color(255, 215, 0); // Gold
     private final Color BUTTON_COLOR = new Color(70, 130, 180); // Steel Blue
     private final Color BUTTON_HOVER_COLOR = new Color(100, 149, 237); // Cornflower Blue
@@ -31,9 +31,13 @@ public class MainMenuPanel extends JPanel {
     private List<DatabaseManager.Player> leaderboard;
 
     // Leaderboard components
+    // Inisialisasi leaderboard panel dan scroll pane dari JScrollPane dan JPanel
     private JScrollPane leaderboardScrollPane;
     private JPanel leaderboardPanel;
 
+    // Constructor
+    // Inisialisasi panel dengan ukuran dan warna latar belakang
+    // Memuat aset, mengatur listener mouse, input nama pemain, dan leaderboard
     public MainMenuPanel() {
         setPreferredSize(new Dimension(800, 600));
         setBackground(BACKGROUND_COLOR);
@@ -46,34 +50,13 @@ public class MainMenuPanel extends JPanel {
     }
 
     private void loadAssets() {
-        // Coba beberapa variasi path
-        try {
-            // Variasi 1: Tanpa leading slash
-            backgroundImage = new ImageIcon(getClass().getResource("assets/backgroundd.png")).getImage();
-        } catch (Exception e1) {
-            try {
-                // Variasi 2: Dengan leading slash
-                backgroundImage = new ImageIcon(getClass().getResource("/assets/backgroundd.png")).getImage();
-            } catch (Exception e2) {
-                try {
-                    // Variasi 3: Relative ke src
-                    backgroundImage = new ImageIcon("assets/backgroundd.png").getImage();
-                } catch (Exception e3) {
-                    System.out.println("All paths failed, using default");
-                }
-            }
-        }
-
+        backgroundImage = new ImageIcon(getClass().getResource("/assets/backgroundd.png")).getImage();
         // Setup fonts
-        try {
-            titleFont = new Font("Arial", Font.BOLD, 48);
-            buttonFont = new Font("Arial", Font.BOLD, 18);
-        } catch (Exception e) {
-            titleFont = new Font(Font.SERIF, Font.BOLD, 48);
-            buttonFont = new Font(Font.SERIF, Font.BOLD, 18);
-        }
+        titleFont = new Font("Arial", Font.BOLD, 48);
+        buttonFont = new Font("Arial", Font.BOLD, 18);
     }
 
+    // Setup mouse listener untuk menangani klik dan hover pada tombol Start Game dan Exit
     private void setupMouseListener() {
         addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -90,6 +73,7 @@ public class MainMenuPanel extends JPanel {
         });
     }
 
+    // Handle mouse click events untuk tombol Start Game dan Exit
     private void handleMouseClick(int mouseX, int mouseY) {
         Rectangle startButtonBounds = getStartButtonBounds();
         Rectangle exitButtonBounds = getExitButtonBounds();
@@ -103,9 +87,9 @@ public class MainMenuPanel extends JPanel {
                 exitGameListener.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "EXIT_GAME"));
             }
         }
-        // Leaderboard click handling is now handled by individual player panels
     }
 
+    // Handle mouse movement events untuk hover efek pada tombol
     private void handleMouseMove(int mouseX, int mouseY) {
         Rectangle startButtonBounds = getStartButtonBounds();
         Rectangle exitButtonBounds = getExitButtonBounds();
@@ -113,12 +97,12 @@ public class MainMenuPanel extends JPanel {
         boolean oldStartHovered = startButtonHovered;
         boolean oldExitHovered = exitButtonHovered;
 
-        startButtonHovered = startButtonBounds.contains(mouseX, mouseY);
-        exitButtonHovered = exitButtonBounds.contains(mouseX, mouseY);
+        startButtonHovered = startButtonBounds.contains(mouseX, mouseY); // Cek apakah mouse berada di dalam area tombol Start Game
+        exitButtonHovered = exitButtonBounds.contains(mouseX, mouseY); // Cek apakah mouse berada di dalam area tombol Exit
 
         if (oldStartHovered != startButtonHovered || oldExitHovered != exitButtonHovered) {
             repaint();
-        }
+        } // Update cursor based on hover state
 
         if (startButtonHovered || exitButtonHovered) {
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -127,13 +111,14 @@ public class MainMenuPanel extends JPanel {
         }
     }
 
+    // Override paintComponent untuk menggambar latar belakang, judul, tombol, dan input nama pemain
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D) g.create();
+        Graphics2D g2d = (Graphics2D) g.create(); 
 
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON); // Anti aliasing untuk garis yang lebih halus
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON); // Anti aliasing untuk teks yang lebih halus
         drawBackground(g2d);
         drawTitle(g2d);
         drawButtons(g2d);
@@ -148,8 +133,7 @@ public class MainMenuPanel extends JPanel {
         int centerY = getHeight() / 2;
 
         // Draw Start Game button
-        Rectangle startButtonBounds = new Rectangle(buttonStartX, centerY - BUTTON_HEIGHT - 10, BUTTON_WIDTH,
-                BUTTON_HEIGHT);
+        Rectangle startButtonBounds = new Rectangle(buttonStartX, centerY - BUTTON_HEIGHT - 10, BUTTON_WIDTH, BUTTON_HEIGHT);
         drawButton(g2d, "START GAME", startButtonBounds, startButtonHovered);
 
         // Draw Exit button
@@ -158,18 +142,7 @@ public class MainMenuPanel extends JPanel {
     }
 
     private void drawBackground(Graphics2D g2d) {
-        // Draw background image if available, otherwise use gradient
-        if (backgroundImage != null) {
-            g2d.drawImage(backgroundImage, 0, 0, getWidth(), getHeight(), this);
-        } else {
-            // Create gradient background
-            GradientPaint gradient = new GradientPaint(
-                    0, 0, new Color(135, 206, 250), // Light Sky Blue
-                    0, getHeight(), new Color(70, 130, 180) // Steel Blue
-            );
-            g2d.setPaint(gradient);
-            g2d.fillRect(0, 0, getWidth(), getHeight());
-        }
+        g2d.drawImage(backgroundImage, 0, 0, getWidth(), getHeight(), this);
     }
 
     private void drawTitle(Graphics2D g2d) {
@@ -209,14 +182,12 @@ public class MainMenuPanel extends JPanel {
 
         // Draw button shadow
         g2d.setColor(new Color(0, 0, 0, 50));
-        RoundRectangle2D shadowButton = new RoundRectangle2D.Float(
-                bounds.x + 3, bounds.y + 3, bounds.width, bounds.height, 15, 15);
+        RoundRectangle2D shadowButton = new RoundRectangle2D.Float(bounds.x + 3, bounds.y + 3, bounds.width, bounds.height, 15, 15);
         g2d.fill(shadowButton);
 
         // Draw button background
         g2d.setColor(bgColor);
-        RoundRectangle2D button = new RoundRectangle2D.Float(
-                bounds.x, bounds.y, bounds.width, bounds.height, 15, 15);
+        RoundRectangle2D button = new RoundRectangle2D.Float(bounds.x, bounds.y, bounds.width, bounds.height, 15, 15);
         g2d.fill(button);
 
         // Draw button border
@@ -276,8 +247,8 @@ public class MainMenuPanel extends JPanel {
         playerNameField.setFont(new Font("Arial", Font.PLAIN, 16));
         playerNameField.setHorizontalAlignment(JTextField.CENTER);
         playerNameField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY, 2),
-                BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+        BorderFactory.createLineBorder(Color.GRAY, 2),
+        BorderFactory.createEmptyBorder(5, 5, 5, 5)));
         add(playerNameField);
     }
 
@@ -290,7 +261,7 @@ public class MainMenuPanel extends JPanel {
                 Graphics2D g2d = (Graphics2D) g.create();
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                // Draw transparent background
+                // Background transparan dengan rounded corners
                 g2d.setColor(new Color(0, 0, 0, 80));
                 g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
 
@@ -307,10 +278,10 @@ public class MainMenuPanel extends JPanel {
         leaderboardScrollPane.setOpaque(false);
         leaderboardScrollPane.getViewport().setOpaque(false);
         leaderboardScrollPane.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(255, 255, 255, 150), 2),
-                BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+        BorderFactory.createLineBorder(new Color(255, 255, 255, 150), 2),
+        BorderFactory.createEmptyBorder(5, 5, 5, 5)));
 
-        // Customize scrollbar
+        // scrollbar
         JScrollBar verticalScrollBar = leaderboardScrollPane.getVerticalScrollBar();
         verticalScrollBar.setOpaque(false);
         verticalScrollBar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
@@ -356,30 +327,22 @@ public class MainMenuPanel extends JPanel {
     }
 
     private void updateLeaderboardDisplay() {
-        System.out.println("=== UPDATING LEADERBOARD DISPLAY ===");
-
-        // PRESERVE SCROLL POSITION
         int scrollPosition = leaderboardScrollPane.getVerticalScrollBar().getValue();
 
-        // SIMPLE CLEAR AND REBUILD - TIDAK REMOVE SCROLL PANE
         leaderboardPanel.removeAll();
 
         if (leaderboard != null && !leaderboard.isEmpty()) {
-            System.out.println("Found " + leaderboard.size() + " players in leaderboard");
             int rank = 1;
             for (DatabaseManager.Player player : leaderboard) {
-                System.out.println(
-                        "Adding rank " + rank + ": " + player.getName() + " (" + player.getHighScore() + "pts)");
                 JPanel playerPanel = createPlayerPanel(player, rank);
                 leaderboardPanel.add(playerPanel);
-                // TAMBAHKAN VERTICAL STRUT UNTUK CONSISTENT SPACING - REDUCED SPACING
-                if (rank < leaderboard.size()) { // Don't add strut after last item
-                    leaderboardPanel.add(Box.createVerticalStrut(2)); // Reduced from 3 to 2px gap
+                
+                if (rank < leaderboard.size()) { 
+                    leaderboardPanel.add(Box.createVerticalStrut(2));
                 }
                 rank++;
             }
         } else {
-            System.out.println("No players found for leaderboard");
             JLabel noDataLabel = new JLabel("No scores yet");
             noDataLabel.setFont(new Font("Arial", Font.ITALIC, 14));
             noDataLabel.setForeground(new Color(200, 200, 200));
@@ -387,7 +350,6 @@ public class MainMenuPanel extends JPanel {
             leaderboardPanel.add(noDataLabel);
         }
 
-        // STABLE REFRESH - MINIMAL REPAINT
         SwingUtilities.invokeLater(() -> {
             leaderboardPanel.revalidate();
             leaderboardPanel.repaint();
@@ -395,24 +357,19 @@ public class MainMenuPanel extends JPanel {
             // RESTORE SCROLL POSITION
             leaderboardScrollPane.getVerticalScrollBar().setValue(scrollPosition);
         });
-
-        System.out.println("=== LEADERBOARD DISPLAY UPDATE COMPLETE ===");
     }
 
     private JPanel createPlayerPanel(DatabaseManager.Player player, int rank) {
-        System.out.println(
-                "Creating panel for rank " + rank + ": " + player.getName() + " (" + player.getHighScore() + "pts)");
-
         JPanel playerPanel = new JPanel(new BorderLayout());
         playerPanel.setOpaque(false);
-        // CONSISTENT SIZE - TAMBAH SEDIKIT HEIGHT UNTUK AVOID OVERLAP
-        playerPanel.setMaximumSize(new Dimension(230, 32)); // Sedikit lebih tinggi
+        
+        playerPanel.setMaximumSize(new Dimension(230, 32));
         playerPanel.setPreferredSize(new Dimension(230, 32));
         playerPanel.setMinimumSize(new Dimension(230, 32));
-        // BORDER DENGAN MARGIN YANG CUKUP
+        
         playerPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createEmptyBorder(1, 1, 1, 1), // Outer margin untuk avoid overlap
-                BorderFactory.createEmptyBorder(4, 8, 4, 8) // Inner padding
+        BorderFactory.createEmptyBorder(1, 1, 1, 1), // Outer margin untuk avoid overlap
+        BorderFactory.createEmptyBorder(4, 8, 4, 8) // Inner padding
         ));
         playerPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
@@ -431,13 +388,11 @@ public class MainMenuPanel extends JPanel {
         playerPanel.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {
-                // SOLID GOLD BACKGROUND - OPAQUE PENUH
                 playerPanel.setOpaque(true);
                 playerPanel.setBackground(new Color(255, 215, 0)); // Solid gold, no transparency
                 nameLabel.setForeground(Color.BLACK);
                 scoreLabel.setForeground(new Color(60, 60, 60));
 
-                // Repaint hanya panel ini, bukan parent
                 playerPanel.repaint();
             }
 
@@ -449,7 +404,6 @@ public class MainMenuPanel extends JPanel {
                 nameLabel.setForeground(Color.WHITE);
                 scoreLabel.setForeground(new Color(200, 200, 200));
 
-                // Repaint hanya panel ini, bukan parent
                 playerPanel.repaint();
             }
 
@@ -488,11 +442,12 @@ public class MainMenuPanel extends JPanel {
         }
     }
 
+    // Load leaderboard data dari database
     private void loadLeaderboard() {
         try {
             DatabaseManager dbManager = DatabaseManager.getInstance();
-            leaderboard = dbManager.getTopPlayers(20); // Load more players for scrolling
-            updateLeaderboardDisplay(); // Update display after loading
+            leaderboard = dbManager.getTopPlayers(20);
+            updateLeaderboardDisplay();
         } catch (Exception e) {
             System.err.println("Error loading leaderboard: " + e.getMessage());
         }
@@ -504,18 +459,14 @@ public class MainMenuPanel extends JPanel {
     }
 
     public void refreshLeaderboard() {
-        System.out.println("=== REFRESH LEADERBOARD CALLED ===");
         loadLeaderboard();
 
-        // Force complete refresh of the scroll pane
         SwingUtilities.invokeLater(() -> {
             leaderboardScrollPane.revalidate();
             leaderboardScrollPane.repaint();
             this.revalidate();
             this.repaint();
-        });
-
-        System.out.println("=== REFRESH LEADERBOARD COMPLETE ===");
+        }); // Untuk memastikan UI di-refresh setelah leaderboard diperbarui
     }
 
     // Event listener setters

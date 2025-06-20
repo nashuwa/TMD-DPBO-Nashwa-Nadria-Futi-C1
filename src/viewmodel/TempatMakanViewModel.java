@@ -55,11 +55,6 @@ public class TempatMakanViewModel {
                 tempatMakan.getCenterY());
     }
 
-    // Method untuk mengecek apakah mouse berada di atas tempat makan
-    public boolean isMouseOver(int mouseX, int mouseY) {
-        return tempatMakan.isMouseOver(mouseX, mouseY);
-    }
-
     // Method untuk menambah ikan
     public void addFish() {
         int oldCount = tempatMakan.getFishCount();

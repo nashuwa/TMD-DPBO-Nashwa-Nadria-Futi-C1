@@ -7,17 +7,12 @@ import java.net.URL;
 public class SoundPlayer {
     private Clip clip;
     private URL soundURL;
+    private long pausePosition = 0;
+    private boolean isPaused = false;
 
     public SoundPlayer(String filePath) {
         try {
-            System.out.println("Attempting to load sound file: " + filePath);
-            // Get the URL for the sound file from the classpath
             soundURL = getClass().getResource(filePath);
-            if (soundURL == null) {
-                System.err.println("Sound file not found: " + filePath);
-                System.err.println("Make sure the file exists in the resources folder");
-                return;
-            }
             System.out.println("Sound file found at: " + soundURL);
             AudioInputStream audioStream = AudioSystem.getAudioInputStream(soundURL);
             clip = AudioSystem.getClip();
@@ -40,9 +35,9 @@ public class SoundPlayer {
     public void loop() {
         if (clip != null) {
             System.out.println("Starting background music loop...");
-            clip.stop(); // Stop if already playing
-            clip.setFramePosition(0); // Rewind to the beginning
-            clip.loop(Clip.LOOP_CONTINUOUSLY); // Loop indefinitely
+            clip.stop(); 
+            clip.setFramePosition(0); 
+            clip.loop(Clip.LOOP_CONTINUOUSLY); 
         } else {
             System.out.println("Cannot loop - clip is null!");
         }
@@ -68,5 +63,27 @@ public class SoundPlayer {
         } else {
             System.out.println("Cannot restart - clip is null!");
         }
+    }
+
+    public void pause() {
+        if (clip != null && clip.isRunning()) {
+            pausePosition = clip.getMicrosecondPosition();
+            clip.stop();
+            isPaused = true;
+            System.out.println("Music paused at position: " + pausePosition);
+        }
+    }
+
+    public void resume() {
+        if (clip != null && isPaused) {
+            clip.setMicrosecondPosition(pausePosition);
+            clip.loop(Clip.LOOP_CONTINUOUSLY);
+            isPaused = false;
+            System.out.println("Music resumed from position: " + pausePosition);
+        }
+    }
+
+    public boolean isPaused() {
+        return isPaused;
     }
 }

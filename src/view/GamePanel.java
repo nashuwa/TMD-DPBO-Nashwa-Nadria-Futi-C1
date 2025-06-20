@@ -6,7 +6,6 @@ import java.awt.*;
 import java.awt.event.*;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import view.SoundPlayer;
 
 public class GamePanel extends JPanel
         implements PropertyChangeListener, KeyListener, MouseListener, MouseMotionListener {
@@ -24,7 +23,6 @@ public class GamePanel extends JPanel
     private SoundPlayer backgroundMusicPlayer;
 
     public GamePanel(GameViewModel gameViewModel) {
-        System.out.println("=== CREATING NEW GAMEPANEL INSTANCE ===");
         this.gameViewModel = gameViewModel;
         setLayout(new BorderLayout());
         setFocusable(true);
@@ -42,9 +40,6 @@ public class GamePanel extends JPanel
 
         // Add property change listener
         gameViewModel.addPropertyChangeListener(this);
-
-        // JANGAN AUTO START GAME - akan dipanggil manual setelah GamePanel dibuat
-        System.out.println("=== GAMEPANEL CREATION COMPLETE (NOT STARTED YET) ===");
     }
 
     private void initializeComponents() {
@@ -159,27 +154,13 @@ public class GamePanel extends JPanel
             if (result == JOptionPane.YES_OPTION) {
                 gameViewModel.stopGame();
                 if (backgroundMusicPlayer != null) {
-                    System.out.println("Stopping music - returning to menu");
                     backgroundMusicPlayer.stop(); // Stop music when returning to menu
                 }
                 App.showMainMenu();
             }
         });
 
-        // Key listeners for game controls
-        addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                gameViewModel.handleKeyPressed(e.getKeyCode());
-            }
-
-            @Override
-            public void keyReleased(KeyEvent e) {
-                gameViewModel.handleKeyReleased();
-            }
-        });
-
-        // Mouse listeners for game interaction
+        // Key listeners for game controls // Mouse listeners for game interaction
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
@@ -220,11 +201,6 @@ public class GamePanel extends JPanel
             timerLabel.setText("Time: " + stats.formattedTime);
             highScoreLabel.setText("High Score: " + stats.highScore);
 
-            // Debug: Print remaining time
-            if (stats.remainingTime <= 5) {
-                System.out.println("=== TIME RUNNING OUT: " + stats.remainingTime + " seconds ===");
-            }
-
             // Update timer color based on remaining time
             if (stats.remainingTime <= 10) {
                 timerLabel.setForeground(Color.RED);
@@ -247,16 +223,28 @@ public class GamePanel extends JPanel
     @Override
     public void propertyChange(PropertyChangeEvent evt) {
         String propertyName = evt.getPropertyName();
-        System.out.println("=== PROPERTY CHANGE: " + propertyName + " = " + evt.getNewValue() + " ===");
-
         switch (propertyName) {
             case "gameOver":
-                System.out.println("=== GAME OVER EVENT RECEIVED ===");
                 SwingUtilities.invokeLater(this::showGameOverDialog);
                 break;
             case "newHighScore":
-                System.out.println("=== NEW HIGH SCORE EVENT RECEIVED ===");
                 SwingUtilities.invokeLater(this::showNewHighScoreDialog);
+                break;
+            case "gamePaused":
+                SwingUtilities.invokeLater(() -> {
+                    // Pause background music
+                    if (backgroundMusicPlayer != null) {
+                        backgroundMusicPlayer.pause();
+                    }
+                });
+                break;
+            case "gameResumed":
+                SwingUtilities.invokeLater(() -> {
+                    // Resume background music
+                    if (backgroundMusicPlayer != null) {
+                        backgroundMusicPlayer.resume();
+                    }
+                });
                 break;
             case "scoreChanged":
             case "remainingTime":
@@ -271,7 +259,6 @@ public class GamePanel extends JPanel
     }
 
     private void showGameOverDialog() {
-        System.out.println("=== SHOWING GAME OVER DIALOG ===");
         GameViewModel.GameStats stats = gameViewModel.getGameStats();
         String message;
 
@@ -307,11 +294,9 @@ public class GamePanel extends JPanel
                 options[0]);
         switch (result) {
             case 0: // Play Again
-                System.out.println("=== PLAY AGAIN CLICKED - USING FORCE RESTART ===");
                 forceRestartGame();
                 break;
             case 1: // Back to Menu
-                System.out.println("=== BACK TO MENU CLICKED ===");
                 if (backgroundMusicPlayer != null) {
                     backgroundMusicPlayer.stop(); // Stop music when going to menu
                 }
@@ -327,7 +312,6 @@ public class GamePanel extends JPanel
                 break;
             case 2: // Exit
             default:
-                System.out.println("=== EXIT CLICKED ===");
                 if (backgroundMusicPlayer != null) {
                     backgroundMusicPlayer.stop();
                 }
@@ -369,27 +353,21 @@ public class GamePanel extends JPanel
 
     // Public methods for external access
     public void startGame() {
-        System.out.println("=== GAMEPANEL.STARTGAME CALLED ===");
         gameViewModel.startGame();
 
         // START UI UPDATE TIMER - INI YANG HILANG!
         if (uiUpdateTimer != null && !uiUpdateTimer.isRunning()) {
             uiUpdateTimer.start();
-            System.out.println("UI Update timer started");
         }
 
         // Initial UI update
         updateGameUI();
 
-        System.out.println("Starting game - attempting to start background music...");
         if (backgroundMusicPlayer != null) {
-            System.out.println("Background music player is not null, starting loop...");
             backgroundMusicPlayer.loop(); // Start looping music when game starts
         } else {
-            System.out.println("Background music player is null!");
         }
         requestFocusInWindow();
-        System.out.println("=== GAMEPANEL.STARTGAME COMPLETE ===");
     }
 
     public void stopGame() {
@@ -412,23 +390,18 @@ public class GamePanel extends JPanel
     } // New method to load background music
 
     private void loadBackgroundMusic() {
-        System.out.println("Attempting to load background music...");
         backgroundMusicPlayer = new SoundPlayer("/assets/backgroundmusic.wav");
         if (backgroundMusicPlayer != null) {
-            System.out.println("Background music player created successfully");
         } else {
-            System.out.println("Failed to create background music player");
         }
     }
 
     // Method untuk restart background music
     public void restartBackgroundMusic() {
-        System.out.println("Restarting background music...");
         if (backgroundMusicPlayer != null) {
             backgroundMusicPlayer.stop();
             backgroundMusicPlayer.loop();
         } else {
-            System.out.println("Background music player is null, reloading...");
             loadBackgroundMusic();
             if (backgroundMusicPlayer != null) {
                 backgroundMusicPlayer.loop();
@@ -438,25 +411,21 @@ public class GamePanel extends JPanel
 
     // Method untuk memulai musik paksa (jika dibutuhkan dari luar)
     public void forceStartBackgroundMusic() {
-        System.out.println("Force starting background music...");
         if (backgroundMusicPlayer == null) {
             loadBackgroundMusic();
         }
         if (backgroundMusicPlayer != null) {
             backgroundMusicPlayer.loop();
         } else {
-            System.out.println("Failed to force start background music - player is null");
         }
     }
 
     // Method static untuk dipanggil dari game over dialog
     public static void forceRestartGame() {
-        System.out.println("=== FORCE RESTART GAME CALLED ===");
         try {
             Class<?> appClass = Class.forName("view.App");
             java.lang.reflect.Method restartGameMethod = appClass.getMethod("restartGame");
             restartGameMethod.invoke(null);
-            System.out.println("=== FORCE RESTART SUCCESS ===");
         } catch (Exception e) {
             System.err.println("FAILED to force restart: " + e.getMessage());
             e.printStackTrace();
@@ -471,7 +440,7 @@ public class GamePanel extends JPanel
 
     @Override
     public void keyReleased(KeyEvent e) {
-        gameViewModel.handleKeyReleased();
+        gameViewModel.handleKeyReleased(e.getKeyCode());
     }
 
     @Override
@@ -495,7 +464,6 @@ public class GamePanel extends JPanel
                     JOptionPane.YES_NO_OPTION);
             if (result == JOptionPane.YES_OPTION) {
                 if (backgroundMusicPlayer != null) {
-                    System.out.println("Stopping music - returning to menu via mouse click");
                     backgroundMusicPlayer.stop(); // Stop music when returning to menu
                 }
                 App.showMainMenu();

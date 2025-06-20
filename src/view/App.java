@@ -48,21 +48,25 @@ public class App {
         frame.setVisible(true);
     }
 
+    // Method untuk setup MainMenuPanel
+    // Ini akan menginisialisasi MainMenuPanel dan menambahkan listener untuk tombol
     private static void setupMainMenu() {
         mainMenuPanel = new MainMenuPanel(); // Set event listeners
         mainMenuPanel.setStartGameListener(e -> {
-            // Get player name and set it in GameViewModel
+            // Get player name dan set ke GameViewModel
+            // Jika nama kosong, tampilkan pesan peringatan
             String playerName = mainMenuPanel.getCurrentPlayerName();
             if (playerName == null || playerName.trim().isEmpty()) {
                 JOptionPane.showMessageDialog(frame, "Mohon masukkan nama pemain!", "Nama Diperlukan",
-                        JOptionPane.WARNING_MESSAGE);
+                JOptionPane.WARNING_MESSAGE);
+                // pop up dialog untuk meminta nama pemain
                 return;
             }
 
             createFreshGamePanel(playerName);
 
-            cardLayout.show(mainContainer, "GAME");
-        });
+            cardLayout.show(mainContainer, "GAME"); // menampilkan GamePanel
+        }); // Set listener untuk tombol mulai
 
         mainMenuPanel.setExitGameListener(e -> {
             int result = JOptionPane.showConfirmDialog(
@@ -73,35 +77,36 @@ public class App {
             if (result == JOptionPane.YES_OPTION) {
                 System.exit(0);
             }
-        });
-    } // Method untuk membuat GamePanel baru saat user klik Play
+        }); // Set listener untuk tombol keluar
+    } 
 
+    // Method untuk membuat GamePanel baru
     private static void createFreshGamePanel(String playerName) {
         
         // Cleanup existing game panel jika ada
         if (gamePanel != null) {
-            gamePanel.cleanup();
-            mainContainer.remove(gamePanel);
+            gamePanel.cleanup(); // Bersihkan resources yang digunakan, seperti musik, skor, poin, dll
+            mainContainer.remove(gamePanel); // Hapus dari container
             gamePanel = null;
         }
 
-        // Create completely new GameViewModel
-        gameViewModel = new GameViewModel();
-        gameViewModel.setPanelDimensions(800, 600);
-        gameViewModel.setCurrentPlayerName(playerName); // Add property change listener to refresh leaderboard when game
-                                                        // ends
+        // Buat GameViewModel baru
+        gameViewModel = new GameViewModel(); // Inisialisasi GameViewModel baru
+        gameViewModel.setPanelDimensions(800, 600); // Set ukuran panel game
+        gameViewModel.setCurrentPlayerName(playerName); // Set nama pemain
+        
+        // Mengupdate leaderboard di menu utama secara otomatis ketika game selesai, waktu habis atau player stop. Mari saya jelaskan detail
         gameViewModel.addPropertyChangeListener(evt -> {
-            
             if ("gameEnded".equals(evt.getPropertyName()) || "highScore".equals(evt.getPropertyName())) {
                 SwingUtilities.invokeLater(() -> {
                     if (mainMenuPanel != null) {
-                        mainMenuPanel.refreshLeaderboard();
+                        mainMenuPanel.refreshLeaderboard(); // Refresh leaderboard di MainMenuPanel
                     }
-                });
+                }); 
             }
         });
 
-        // Create completely new GamePanel
+        // Buat game panel baru dengan GameViewModel
         gamePanel = new GamePanel(gameViewModel);
         gamePanel.setPreferredSize(new Dimension(800, 600));
 
@@ -112,18 +117,19 @@ public class App {
         mainContainer.revalidate();
         mainContainer.repaint();
 
-        // NOW start the game manually - ini baru musik akan mulai!
+        // Memulai game
         gamePanel.startGame();
 
-    }// Method untuk kembali ke menu (bisa dipanggil dari game)
+    }
 
+    // Method untuk membuat GamePanel baru saat restart
     public static void showMainMenu() {
         
         if (gamePanel != null) {
             gamePanel.stopGame();
             gamePanel.cleanup();
             mainContainer.remove(gamePanel);
-            gamePanel = null;
+            gamePanel = null; // reset game
         }
 
         // Reset game state ketika kembali ke menu
@@ -135,8 +141,8 @@ public class App {
         if (mainMenuPanel != null) {
             mainMenuPanel.refreshLeaderboard();
         }
-        cardLayout.show(mainContainer, "MENU");
-    } // Method untuk membuat GamePanel baru saat restart
+        cardLayout.show(mainContainer, "MENU"); // Tampilkan MainMenuPanel
+    } 
 
     public static void restartGame() {
         
